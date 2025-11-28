@@ -1,0 +1,5 @@
+{
+  "name": "OS Memory Explorer",
+  "description": "An interactive educational tool to visualize and understand Operating System memory management concepts including Segmentation, Paging, and Multi-level Page Tables, powered by an AI tutor.",
+  "requestFramePermissions": []
+}
