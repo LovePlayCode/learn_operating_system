@@ -1,36 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { PageTableEntry } from '../types';
-import { ArrowDown, Database, Cpu } from 'lucide-react';
+import { ArrowDown, ArrowRight, Search, Server, Cpu, Zap, Binary, AlertOctagon } from 'lucide-react';
 
-const PAGE_SIZE = 4096; // 4KB
-const PAGE_COUNT = 16;  // Small for visualization
+const PAGE_COUNT = 16;  // Total Pages
 
 export const PagingView: React.FC = () => {
-  // Virtual Address is 16 bit: 4 bit VPN, 12 bit Offset for demo simplicity (though UI shows Hex)
-  const [virtualAddrInput, setVirtualAddrInput] = useState<string>("0x3050");
+  const [virtualAddrInput, setVirtualAddrInput] = useState<string>("3050");
   const [pageTable, setPageTable] = useState<PageTableEntry[]>([]);
+  const [hoveredSection, setHoveredSection] = useState<'vpn' | 'offset' | null>(null);
   
-  // Initialize Page Table on mount
   useEffect(() => {
     const pt: PageTableEntry[] = [];
     for (let i = 0; i < PAGE_COUNT; i++) {
       pt.push({
         pageNumber: i,
-        frameNumber: Math.floor(Math.random() * 256), // Random frame
-        valid: Math.random() > 0.3 // 70% valid chance
+        frameNumber: Math.floor(Math.random() * 256),
+        valid: Math.random() > 0.2
       });
     }
     setPageTable(pt);
   }, []);
 
-  // Parse input
-  const parsedAddr = parseInt(virtualAddrInput, 16);
-  const isValidHex = !isNaN(parsedAddr) && virtualAddrInput.startsWith("0x");
+  // Parse Hex Input
+  const cleanInput = virtualAddrInput.replace(/^0x/, '');
+  const parsedAddr = parseInt(cleanInput, 16);
+  const isValidHex = !isNaN(parsedAddr) && cleanInput.length <= 4 && cleanInput.length > 0;
   
-  // Calculate VPN and Offset
-  // Assuming 16-bit address space for visualization: [VPN: 4 bits][Offset: 12 bits]
-  // VPN = Addr >> 12
-  // Offset = Addr & 0xFFF
   const vpn = isValidHex ? (parsedAddr >> 12) & 0xF : 0;
   const offset = isValidHex ? parsedAddr & 0xFFF : 0;
   
@@ -38,138 +33,246 @@ export const PagingView: React.FC = () => {
   const physicalAddr = pte && pte.valid ? (pte.frameNumber << 12) | offset : null;
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-6 gap-6">
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800 mb-2">页式存储 (Paging)</h2>
-        <p className="text-slate-600 text-sm">
-          虚拟地址被分为 <strong>虚拟页号 (VPN)</strong> 和 <strong>页内偏移 (Offset)</strong>。
-          系统通过查页表将 VPN 映射为物理页框号 (PFN)。物理地址 = PFN * 页大小 + Offset。
-          本示例假设页大小为 4KB (0x1000)，虚拟地址空间为 16位。
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Step 1: Virtual Address */}
-        <div className="space-y-4">
-          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-             <div className="flex items-center gap-2 mb-2 text-blue-800 font-semibold">
-               <Cpu size={18} /> 1. CPU 发出虚拟地址
-             </div>
-             <input 
-               type="text" 
-               value={virtualAddrInput}
-               onChange={(e) => setVirtualAddrInput(e.target.value)}
-               className="w-full font-mono text-lg p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-               placeholder="0x3050"
-               maxLength={6}
-             />
-             {!isValidHex && <div className="text-red-500 text-xs mt-1">请输入有效的16进制 (例如 0x3050)</div>}
-          </div>
-
-          {isValidHex && (
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h4 className="text-sm font-semibold text-slate-500 mb-3">地址拆分 (Address Split)</h4>
-              <div className="flex border rounded overflow-hidden text-center font-mono text-sm">
-                <div className="w-1/3 bg-indigo-100 p-2 border-r border-indigo-200">
-                  <div className="text-xs text-indigo-500 mb-1">VPN (4 bits)</div>
-                  <div className="font-bold text-indigo-700">0x{vpn.toString(16).toUpperCase()}</div>
-                  <div className="text-[10px] text-slate-400">({vpn})</div>
-                </div>
-                <div className="w-2/3 bg-teal-100 p-2">
-                   <div className="text-xs text-teal-600 mb-1">Offset (12 bits)</div>
-                   <div className="font-bold text-teal-800">0x{offset.toString(16).toUpperCase().padStart(3, '0')}</div>
-                </div>
-              </div>
+    <div className="flex flex-col h-full p-6 gap-6 overflow-y-auto bg-slate-50/50">
+      
+      {/* Top Section: CPU & Address Breakdown */}
+      <div className="flex gap-6 items-stretch">
+         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full md:w-1/3 flex flex-col">
+            <h3 className="flex items-center gap-2 font-bold text-slate-800 mb-4">
+              <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600"><Cpu size={18}/></div>
+              CPU 虚拟地址 (VA)
+            </h3>
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">0x</span>
+              <input 
+                type="text" 
+                value={virtualAddrInput}
+                onChange={(e) => {
+                   if (e.target.value.length <= 4 && /^[0-9a-fA-F]*$/.test(e.target.value)) {
+                     setVirtualAddrInput(e.target.value.toUpperCase());
+                   }
+                }}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none tracking-widest transition-all"
+                placeholder="FFFF"
+              />
             </div>
-          )}
-        </div>
+            <div className="mt-auto bg-blue-50 p-3 rounded-lg border border-blue-100">
+               <div className="flex items-center gap-2 text-blue-800 font-bold text-xs mb-1">
+                 <Zap size={14} fill="currentColor" /> 快表 (TLB) 模拟
+               </div>
+               <p className="text-[10px] text-blue-600 leading-tight">
+                 现代 CPU 会先查找 TLB 缓存。如果 TLB Miss (未命中)，则需访问内存中的页表 (Page Table)。
+               </p>
+            </div>
+         </div>
 
-        {/* Step 2: Page Table Lookup */}
-        <div className="space-y-4">
-           <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 h-[400px] flex flex-col">
-              <div className="flex items-center gap-2 mb-2 text-indigo-800 font-semibold">
-                <Database size={18} /> 2. 查页表 (Page Table)
-              </div>
-              <div className="flex-1 overflow-y-auto bg-white rounded border border-indigo-100 text-sm">
-                 <table className="w-full text-center">
-                    <thead className="bg-indigo-50 text-indigo-600 sticky top-0">
-                      <tr>
-                        <th className="p-2">VPN</th>
-                        <th className="p-2">Frame (PFN)</th>
-                        <th className="p-2">Valid</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-mono">
-                      {pageTable.map((entry) => (
-                        <tr 
-                          key={entry.pageNumber}
-                          className={`
-                            border-b border-slate-50 
-                            ${vpn === entry.pageNumber ? 'bg-yellow-100 font-bold' : ''}
-                          `}
-                        >
-                          <td className="p-1 text-slate-500">0x{entry.pageNumber.toString(16).toUpperCase()}</td>
-                          <td className="p-1">{entry.frameNumber.toString(16).toUpperCase().padStart(2, '0')}</td>
-                          <td className="p-1">
-                            {entry.valid ? 
-                              <span className="text-green-500">1</span> : 
-                              <span className="text-red-400">0</span>
-                            }
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                 </table>
+         {/* Address Bit Visualization */}
+         {isValidHex && (
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col justify-center relative overflow-hidden">
+              <h4 className="text-xs font-bold text-slate-400 uppercase mb-6 flex items-center gap-2">
+                 <Binary size={14}/> 地址结构拆解 (16-bit)
+              </h4>
+              
+              <div className="flex justify-center items-stretch gap-1 h-24">
+                
+                {/* VPN Part */}
+                <div 
+                  className={`flex flex-col items-center group cursor-help transition-all duration-300 rounded-xl p-2 ${hoveredSection === 'vpn' ? 'bg-indigo-50 scale-105' : ''}`}
+                  onMouseEnter={() => setHoveredSection('vpn')}
+                  onMouseLeave={() => setHoveredSection(null)}
+                >
+                   <div className="flex-1 flex items-end mb-2">
+                     <span className="text-[10px] text-slate-400 font-mono mb-1 mr-1">4-bit</span>
+                     <div className="bg-indigo-100 border-2 border-indigo-500 text-indigo-800 font-mono font-bold text-3xl px-5 py-2 rounded-lg shadow-sm">
+                        {cleanInput.padStart(4,'0')[0]}
+                     </div>
+                   </div>
+                   <div className="flex flex-col items-center">
+                     <div className="h-4 w-0.5 bg-indigo-300 mb-1"></div>
+                     <span className="text-xs font-bold text-indigo-600">页号 (VPN)</span>
+                     <span className="text-[10px] text-indigo-400 font-mono">Index: {vpn}</span>
+                   </div>
+                </div>
+
+                <div className="flex items-center text-slate-300 pb-12 text-2xl font-light mx-4">+</div>
+
+                {/* Offset Part */}
+                <div 
+                  className={`flex flex-col items-center group cursor-help transition-all duration-300 rounded-xl p-2 ${hoveredSection === 'offset' ? 'bg-teal-50 scale-105' : ''}`}
+                  onMouseEnter={() => setHoveredSection('offset')}
+                  onMouseLeave={() => setHoveredSection(null)}
+                >
+                   <div className="flex-1 flex items-end mb-2">
+                     <span className="text-[10px] text-slate-400 font-mono mb-1 mr-1">12-bit</span>
+                     <div className="bg-teal-100 border-2 border-teal-500 text-teal-800 font-mono font-bold text-3xl px-8 py-2 rounded-lg shadow-sm tracking-widest">
+                        {cleanInput.padStart(4,'0').substring(1)}
+                     </div>
+                   </div>
+                   <div className="flex flex-col items-center">
+                     <div className="h-4 w-0.5 bg-teal-300 mb-1"></div>
+                     <span className="text-xs font-bold text-teal-600">页内偏移 (Offset)</span>
+                     <span className="text-[10px] text-teal-400">Page Size: 4KB</span>
+                   </div>
+                </div>
+
               </div>
            </div>
-        </div>
+         )}
+      </div>
 
-        {/* Step 3: Physical Address */}
-        <div className="space-y-4">
-          <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
-             <div className="flex items-center gap-2 mb-2 text-teal-800 font-semibold">
-               <ArrowDown size={18} /> 3. 生成物理地址
-             </div>
-             
-             {isValidHex && pte ? (
-                pte.valid ? (
-                  <div className="space-y-4">
-                    <div className="flex border rounded overflow-hidden text-center font-mono text-sm bg-white shadow-sm">
-                      <div className="w-1/3 bg-indigo-600 text-white p-2">
-                        <div className="text-[10px] opacity-75 mb-1">PFN</div>
-                        <div className="font-bold">0x{pte.frameNumber.toString(16).toUpperCase().padStart(2, '0')}</div>
-                      </div>
-                      <div className="w-2/3 bg-teal-500 text-white p-2">
-                        <div className="text-[10px] opacity-75 mb-1">Offset</div>
-                        <div className="font-bold">0x{offset.toString(16).toUpperCase().padStart(3, '0')}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-xs text-slate-500 mb-1">最终物理地址 (Physical Address)</div>
-                      <div className="text-3xl font-mono font-bold text-slate-800">
-                        0x{physicalAddr!.toString(16).toUpperCase().padStart(5, '0')}
-                      </div>
-                    </div>
+      {/* Bottom: Flow Visualization */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 min-h-0">
+         
+         {/* Step 1: Page Table Lookup */}
+         <div className={`md:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden transition-all duration-300 ${hoveredSection === 'vpn' ? 'ring-2 ring-indigo-400 shadow-md' : ''}`}>
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+               <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                 <div className="bg-indigo-100 p-1 rounded text-indigo-600"><Search size={14} /></div>
+                 页表查找 (Lookup)
+               </h3>
+               <span className="text-xs font-mono bg-white border border-slate-200 px-2 py-1 rounded text-slate-500">VPN: {vpn}</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200">
+               <table className="w-full text-sm text-center">
+                 <thead className="sticky top-0 bg-slate-100 text-slate-500 text-xs font-bold uppercase shadow-sm z-10">
+                   <tr>
+                     <th className="py-2.5">VPN (页号)</th>
+                     <th className="py-2.5">PFN (物理页框)</th>
+                     <th className="py-2.5">Valid (有效位)</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-50 font-mono">
+                   {pageTable.map((entry) => {
+                     const isActive = isValidHex && entry.pageNumber === vpn;
+                     return (
+                       <tr 
+                         key={entry.pageNumber} 
+                         id={`row-${entry.pageNumber}`}
+                         className={`transition-colors duration-300 ${
+                           isActive 
+                             ? 'bg-indigo-600 text-white shadow-inner' 
+                             : 'hover:bg-slate-50 text-slate-600'
+                         }`}
+                       >
+                         <td className="py-2 font-medium">0x{entry.pageNumber.toString(16).toUpperCase()}</td>
+                         <td className={`py-2 font-bold ${isActive ? 'text-white' : 'text-slate-800'}`}>{entry.frameNumber.toString(16).toUpperCase().padStart(2, '0')}</td>
+                         <td className="py-2">
+                           {entry.valid 
+                             ? <span className={`inline-block px-2 rounded-full text-[10px] ${isActive ? 'bg-green-400/30 text-white' : 'bg-green-100 text-green-700'}`}>1 (OK)</span> 
+                             : <span className={`inline-block px-2 rounded-full text-[10px] ${isActive ? 'bg-red-400/30 text-white' : 'bg-red-100 text-red-500'}`}>0 (Fault)</span>}
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
+            </div>
+         </div>
 
-                    <div className="bg-green-100 text-green-800 text-xs p-2 rounded text-center">
-                       映射成功 (Hit)
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-32 bg-red-50 rounded border border-red-200 text-red-600">
-                    <span className="font-bold text-lg">缺页异常 (Page Fault)</span>
-                    <span className="text-xs mt-1">Valid 位为 0</span>
-                  </div>
-                )
-             ) : (
-               <div className="text-slate-400 text-center text-sm py-4">等待输入...</div>
-             )}
-          </div>
-        </div>
+         {/* Arrow Connector */}
+         <div className="md:col-span-2 flex flex-col items-center justify-center text-slate-300 relative">
+            {/* Animated line behind */}
+            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 -z-10"></div>
+            
+            {isValidHex && pte && pte.valid ? (
+               <div className="bg-white p-2 rounded-full shadow-sm border border-slate-100 z-10">
+                 <div className="flex flex-col items-center animate-pulse text-green-500">
+                   <div className="bg-green-100 rounded-full p-2 mb-1"><ArrowRight size={24} /></div>
+                   <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-600 px-2 rounded-full border border-green-100">映射命中</span>
+                 </div>
+               </div>
+            ) : (
+               <div className="bg-white p-2 rounded-full shadow-sm border border-slate-100 z-10">
+                 <div className="flex flex-col items-center text-red-400 opacity-80">
+                   <div className="bg-red-50 rounded-full p-2 mb-1"><AlertOctagon size={24} /></div>
+                   <span className="text-[10px] font-bold uppercase">异常中断</span>
+                 </div>
+               </div>
+            )}
+         </div>
+
+         {/* Step 2: Physical Address Construction */}
+         <div className="md:col-span-5 flex flex-col gap-4">
+            <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col justify-center items-center relative overflow-hidden transition-all duration-300 ${hoveredSection === 'offset' ? 'ring-2 ring-teal-400 shadow-md' : ''}`}>
+               <h3 className="absolute top-4 left-4 font-bold text-slate-700 flex items-center gap-2">
+                 <div className="bg-emerald-100 p-1 rounded text-emerald-600"><Server size={14} /></div>
+                 物理地址 (PA)
+               </h3>
+
+               {isValidHex && pte ? (
+                 pte.valid ? (
+                   <div className="text-center z-10 w-full">
+                      <div className="flex items-center justify-center gap-1 mb-8">
+                         {/* PFN */}
+                         <div className="flex flex-col relative group">
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-indigo-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                               来自页表
+                            </div>
+                            <div className="bg-indigo-600 text-white font-mono text-2xl font-bold px-4 py-3 rounded-l-lg shadow-lg border-r border-indigo-400">
+                               0x{pte.frameNumber.toString(16).toUpperCase().padStart(2,'0')}
+                            </div>
+                            <span className="text-xs font-bold text-indigo-600 mt-2">PFN</span>
+                         </div>
+                         {/* Offset */}
+                         <div className="flex flex-col relative group">
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-teal-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                               直接复制
+                            </div>
+                            <div className="bg-teal-500 text-white font-mono text-2xl font-bold px-4 py-3 rounded-r-lg shadow-lg">
+                               {cleanInput.padStart(4,'0').substring(1)}
+                            </div>
+                            <span className="text-xs font-bold text-teal-600 mt-2">Offset</span>
+                         </div>
+                      </div>
+
+                      <div className="text-5xl font-mono font-bold text-slate-800 tracking-wider drop-shadow-sm">
+                         0x{physicalAddr!.toString(16).toUpperCase().padStart(5, '0')}
+                      </div>
+                      <div className="mt-4 text-xs text-green-700 font-medium bg-green-100 px-4 py-1.5 rounded-full inline-flex items-center gap-1 border border-green-200">
+                        <CheckCircle size={12}/> 地址转换成功
+                      </div>
+                   </div>
+                 ) : (
+                   <div className="text-center z-10">
+                      <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-100 animate-pulse">
+                         <AlertOctagon size={32} className="text-red-500"/>
+                      </div>
+                      <h4 className="text-xl font-bold text-red-600">缺页异常 (Page Fault)</h4>
+                      <div className="mt-4 bg-red-50 p-3 rounded-xl border border-red-100 text-left">
+                        <p className="text-slate-600 text-xs leading-relaxed">
+                          <span className="font-bold">原因：</span> 有效位 (Valid Bit) 为 0，表示该页不在物理内存中。
+                        </p>
+                        <p className="text-slate-600 text-xs leading-relaxed mt-1">
+                          <span className="font-bold">处理：</span> OS 暂停进程 -> 启动磁盘 I/O 加载页 -> 更新页表 -> 重新执行指令。
+                        </p>
+                      </div>
+                   </div>
+                 )
+               ) : (
+                 <div className="flex flex-col items-center text-slate-400 text-sm">
+                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2"><Search size={20}/></div>
+                   请输入有效的虚拟地址以开始...
+                 </div>
+               )}
+               
+               {/* Background Pattern */}
+               <div className="absolute right-[-20px] bottom-[-20px] opacity-5 text-slate-900 pointer-events-none">
+                  <Server size={140} />
+               </div>
+            </div>
+         </div>
 
       </div>
     </div>
   );
 };
+
+function CheckCircle({size}: {size: number}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+  )
+}
