@@ -244,7 +244,7 @@ export const PagingView: React.FC = () => {
                           <span className="font-bold">原因：</span> 有效位 (Valid Bit) 为 0，表示该页不在物理内存中。
                         </p>
                         <p className="text-slate-600 text-xs leading-relaxed mt-1">
-                          <span className="font-bold">处理：</span> OS 暂停进程 -> 启动磁盘 I/O 加载页 -> 更新页表 -> 重新执行指令。
+                          <span className="font-bold">处理：</span> OS 暂停进程 → 启动磁盘 I/O 加载页 → 更新页表 → 重新执行指令。
                         </p>
                       </div>
                    </div>
