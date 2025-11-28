@@ -1,103 +1,151 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList } from 'lucide-react';
 import { SegmentationView } from './components/SegmentationView';
 import { PagingView } from './components/PagingView';
 import { MultiLevelPagingView } from './components/MultiLevelPagingView';
+import { InvertedPagingView } from './components/InvertedPagingView';
+import { SegmentedPagingView } from './components/SegmentedPagingView';
 import { AITutor } from './components/AITutor';
 import { MemoryMode } from './types';
+import { ThemeProvider, useTheme } from './hooks/useTheme';
 
-const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => (
-  <NavLink 
-    to={to} 
-    className={({ isActive }) => 
-      `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 font-medium text-sm ${
-        isActive 
-          ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' 
-          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-      }`
-    }
-  >
-    <Icon size={18} />
-    <span>{label}</span>
-  </NavLink>
-);
+const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+  const { styles } = useTheme();
+  return (
+    <NavLink 
+      to={to} 
+      className={({ isActive }) => 
+        `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm mb-1 ${
+          isActive 
+            ? styles.sidebarItem.active
+            : styles.sidebarItem.inactive
+        }`
+      }
+    >
+      <Icon size={18} />
+      <span>{label}</span>
+    </NavLink>
+  );
+};
 
-const Header = ({ title, subtitle }: { title: string, subtitle: string }) => (
-  <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shrink-0 shadow-sm z-10">
-    <div>
-      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-      <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
-    </div>
-    <div className="flex items-center gap-2 text-sm text-slate-400">
-      <Cpu size={16} />
-      <span>OS Memory Explorer</span>
-    </div>
-  </header>
-);
+const Header = ({ title, subtitle }: { title: string, subtitle: string }) => {
+  const { styles, mode, toggleTheme } = useTheme();
+  
+  return (
+    <header className={`px-8 py-5 flex items-center justify-between shrink-0 z-10 ${mode === 'modern' ? 'bg-white border-b border-slate-200' : 'bg-white/80 border-b-2 border-pink-100 backdrop-blur-sm'}`}>
+      <div>
+        <h2 className={`text-xl font-bold ${styles.text.primary}`}>{title}</h2>
+        <p className={`text-sm mt-1 ${styles.text.secondary}`}>{subtitle}</p>
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={toggleTheme}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+            mode === 'modern' 
+              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
+              : 'bg-pink-100 text-pink-500 hover:bg-pink-200 shadow-sm'
+          }`}
+        >
+          <Palette size={14} />
+          {mode === 'modern' ? '严肃模式' : '可爱模式'}
+          {mode === 'modern' ? <ToggleLeft size={20}/> : <ToggleRight size={20}/>}
+        </button>
+        
+        <div className={`flex items-center gap-2 text-sm ${styles.text.secondary}`}>
+          <Cpu size={16} />
+          <span className="font-mono">OS Kernel v2.1</span>
+        </div>
+      </div>
+    </header>
+  );
+};
 
 const ContentWrapper = () => {
   const location = useLocation();
+  const { styles, mode } = useTheme();
 
   let currentMode = MemoryMode.SEGMENTATION;
-  let title = "段式存储管理 (Segmentation)";
-  let subtitle = "逻辑地址由段号和偏移量组成，通过段表映射到物理内存。";
-  let contextDesc = "用户正在查看段式存储模拟。包含段表、基址、界限寄存器逻辑。重点观察越界检查和地址加法。";
+  let title = "段式存储管理";
+  let subtitle = "Segmentation Logic";
+  let contextDesc = "用户正在查看段式存储模拟。包含段表、基址、界限寄存器逻辑。";
   
-  if (location.pathname.includes('paging')) {
+  if (location.pathname === '/paging') {
     currentMode = MemoryMode.PAGING;
-    title = "页式存储管理 (Paging)";
-    subtitle = "逻辑地址空间被划分为固定大小的页，通过页表映射到物理页框。";
-    contextDesc = "用户正在查看页式存储模拟。包含页表、VPN到PFN转换。重点观察页号如何索引页表。";
-  } else if (location.pathname.includes('multi-level')) {
+    title = "页式存储管理";
+    subtitle = "Paging Mechanism";
+    contextDesc = "用户正在查看页式存储模拟。包含页表、VPN到PFN转换。";
+  } else if (location.pathname === '/multi-level') {
     currentMode = MemoryMode.MULTI_LEVEL;
-    title = "多级页表 (Multi-Level Paging)";
-    subtitle = "通过分级结构减少页表占用的连续内存空间。";
-    contextDesc = "用户正在查看多级页表模拟。演示了页目录和二级页表的层级结构以及地址的拆分。";
+    title = "多级页表";
+    subtitle = "Multi-Level Page Tables";
+    contextDesc = "用户正在查看多级页表模拟。演示了页目录和二级页表结构。";
+  } else if (location.pathname === '/inverted') {
+    currentMode = MemoryMode.INVERTED;
+    title = "反转页表";
+    subtitle = "Inverted Page Table (Hash)";
+    contextDesc = "用户正在查看反转页表模拟。演示了基于哈希的全局页表和冲突链查找。";
+  } else if (location.pathname === '/segmented-paging') {
+    currentMode = MemoryMode.SEGMENTED_PAGING;
+    title = "段页式存储";
+    subtitle = "Segmented Paging";
+    contextDesc = "用户正在查看段页式存储模拟。演示了先分段再分页的二级查找过程。";
   }
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-900">
+    <div className={`flex h-screen ${styles.font} ${styles.bg}`}>
       {/* Sidebar */}
-      <aside className="w-72 bg-slate-900 flex flex-col shrink-0 z-20 shadow-xl">
-        <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-3 text-white">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Cpu size={24} className="text-white" />
+      <aside className={`w-72 flex flex-col shrink-0 z-20 transition-colors duration-300 ${styles.sidebar}`}>
+        <div className={`p-6 ${mode === 'modern' ? 'border-b border-slate-800' : 'border-b-2 border-pink-100'}`}>
+          <div className={`flex items-center gap-3 ${mode === 'modern' ? 'text-white' : 'text-slate-800'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
+              mode === 'modern' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-pink-400 text-white'
+            }`}>
+              {mode === 'modern' ? <Cpu size={24} /> : <Sparkles size={24} />}
             </div>
             <div>
-              <h1 className="font-bold text-lg tracking-tight">OS Kernel</h1>
-              <div className="text-xs text-slate-400 font-medium">Memory Subsystem</div>
+              <h1 className="font-bold text-lg tracking-tight">OS Explorer</h1>
+              <div className={`text-xs font-medium ${mode === 'modern' ? 'text-slate-400' : 'text-pink-400'}`}>Memory Labs</div>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <div className="text-xs font-bold text-slate-500 px-4 mb-3 uppercase tracking-wider mt-4">Core Concepts</div>
-          <NavItem to="/" icon={Layers} label="段式存储 (Segmentation)" />
-          <NavItem to="/paging" icon={FileDigit} label="页式存储 (Paging)" />
-          <NavItem to="/multi-level" icon={LayoutDashboard} label="多级页表 (Multi-level)" />
+        <nav className="flex-1 p-4 overflow-y-auto">
+          <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-4 ${styles.text.secondary}`}>
+            Basic Concepts
+          </div>
+          <NavItem to="/" icon={Layers} label="段式存储" />
+          <NavItem to="/paging" icon={FileDigit} label="页式存储" />
+          <NavItem to="/multi-level" icon={LayoutDashboard} label="多级页表" />
           
-          <div className="mt-8 mx-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+          <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-8 ${styles.text.secondary}`}>
+            Advanced
+          </div>
+          <NavItem to="/inverted" icon={Fingerprint} label="反转页表" />
+          <NavItem to="/segmented-paging" icon={LayoutList} label="段页式存储" />
+          
+          <div className={`mt-8 mx-4 p-4 rounded-xl border ${
+            mode === 'modern' 
+              ? 'bg-slate-800/50 border-slate-700/50' 
+              : 'bg-pink-50/50 border-pink-100'
+          }`}>
             <div className="flex items-start gap-3">
-              <BookOpen className="text-blue-400 shrink-0 mt-1" size={16} />
+              <BookOpen className={`shrink-0 mt-1 ${mode === 'modern' ? 'text-blue-400' : 'text-pink-400'}`} size={16} />
               <div>
-                <h4 className="text-slate-200 text-sm font-semibold mb-1">学习提示</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  尝试修改地址输入，观察地址转换过程中的 MMU 行为和异常处理 (Trap)。
+                <h4 className={`text-sm font-semibold mb-1 ${mode === 'modern' ? 'text-slate-200' : 'text-slate-700'}`}>学习提示</h4>
+                <p className={`text-xs leading-relaxed ${mode === 'modern' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  点击左上角切换按钮可以更换 UI 风格！尝试修改参数观察地址变换。
                 </p>
               </div>
             </div>
           </div>
         </nav>
-        
-        <div className="p-4 border-t border-slate-800 text-center">
-          <span className="text-xs text-slate-600">v2.0.0 • Interactive Learning</span>
-        </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50/50">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Header title={title} subtitle={subtitle} />
 
         <div className="flex-1 overflow-hidden relative">
@@ -105,6 +153,8 @@ const ContentWrapper = () => {
              <Route path="/" element={<SegmentationView />} />
              <Route path="/paging" element={<PagingView />} />
              <Route path="/multi-level" element={<MultiLevelPagingView />} />
+             <Route path="/inverted" element={<InvertedPagingView />} />
+             <Route path="/segmented-paging" element={<SegmentedPagingView />} />
            </Routes>
         </div>
 
@@ -117,7 +167,9 @@ const ContentWrapper = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <ContentWrapper />
+      <ThemeProvider>
+        <ContentWrapper />
+      </ThemeProvider>
     </Router>
   );
 };

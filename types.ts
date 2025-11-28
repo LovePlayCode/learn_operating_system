@@ -1,7 +1,10 @@
+
 export enum MemoryMode {
   SEGMENTATION = 'segmentation',
   PAGING = 'paging',
   MULTI_LEVEL = 'multi_level',
+  INVERTED = 'inverted_paging',
+  SEGMENTED_PAGING = 'segmented_paging',
 }
 
 export interface Segment {
