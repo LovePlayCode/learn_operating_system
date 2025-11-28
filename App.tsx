@@ -1,12 +1,13 @@
 
 import React from 'react';
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList } from 'lucide-react';
+import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity } from 'lucide-react';
 import { SegmentationView } from './components/SegmentationView';
 import { PagingView } from './components/PagingView';
 import { MultiLevelPagingView } from './components/MultiLevelPagingView';
 import { InvertedPagingView } from './components/InvertedPagingView';
 import { SegmentedPagingView } from './components/SegmentedPagingView';
+import { ProcessView } from './components/ProcessView';
 import { AITutor } from './components/AITutor';
 import { MemoryMode } from './types';
 import { ThemeProvider, useTheme } from './hooks/useTheme';
@@ -92,6 +93,11 @@ const ContentWrapper = () => {
     title = "段页式存储";
     subtitle = "Segmented Paging";
     contextDesc = "用户正在查看段页式存储模拟。演示了先分段再分页的二级查找过程。";
+  } else if (location.pathname === '/process') {
+    currentMode = MemoryMode.PROCESS;
+    title = "进程管理";
+    subtitle = "Process Scheduling & States";
+    contextDesc = "用户正在查看进程管理模拟。包含进程状态流转（生命周期）和调度算法（FIFO/RR/MLFQ）。";
   }
 
   return (
@@ -114,17 +120,18 @@ const ContentWrapper = () => {
 
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-4 ${styles.text.secondary}`}>
-            Basic Concepts
+            Memory Management
           </div>
           <NavItem to="/" icon={Layers} label="段式存储" />
           <NavItem to="/paging" icon={FileDigit} label="页式存储" />
           <NavItem to="/multi-level" icon={LayoutDashboard} label="多级页表" />
-          
-          <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-8 ${styles.text.secondary}`}>
-            Advanced
-          </div>
           <NavItem to="/inverted" icon={Fingerprint} label="反转页表" />
           <NavItem to="/segmented-paging" icon={LayoutList} label="段页式存储" />
+
+          <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-8 ${styles.text.secondary}`}>
+            Process Management
+          </div>
+          <NavItem to="/process" icon={Activity} label="进程调度 & 状态" />
           
           <div className={`mt-8 mx-4 p-4 rounded-xl border ${
             mode === 'modern' 
@@ -155,6 +162,7 @@ const ContentWrapper = () => {
              <Route path="/multi-level" element={<MultiLevelPagingView />} />
              <Route path="/inverted" element={<InvertedPagingView />} />
              <Route path="/segmented-paging" element={<SegmentedPagingView />} />
+             <Route path="/process" element={<ProcessView />} />
            </Routes>
         </div>
 

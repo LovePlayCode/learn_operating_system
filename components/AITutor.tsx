@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, Sparkles, Bot, User, MessageCircleHeart } from 'lucide-react';
 import { askAITutor } from '../services/geminiService';
@@ -13,7 +14,10 @@ interface AITutorProps {
 const SUGGESTED_QUESTIONS = {
   [MemoryMode.SEGMENTATION]: ["如果偏移量大于界限会发生什么？", "为什么需要物理基址？", "段表里存了什么？"],
   [MemoryMode.PAGING]: ["VPN 和 PFN 是什么关系？", "为什么页表需要有效位？", "页大小对地址转换有什么影响？"],
-  [MemoryMode.MULTI_LEVEL]: ["为什么需要多级页表？", "多级页表如何节省空间？", "TLB 是什么？"]
+  [MemoryMode.MULTI_LEVEL]: ["为什么需要多级页表？", "多级页表如何节省空间？", "TLB 是什么？"],
+  [MemoryMode.INVERTED]: ["反转页表如何解决大地址空间问题？", "哈希冲突怎么处理？", "为什么反转页表不能共享页面？"],
+  [MemoryMode.SEGMENTED_PAGING]: ["段页式相比纯页式有什么优势？", "地址转换为什么需要三次访存？", "段表项和页表项有什么区别？"],
+  [MemoryMode.PROCESS]: ["什么是进程上下文切换？", "FIFO, RR, MLFQ 哪个算法更好？", "就绪和阻塞状态有什么区别？"]
 };
 
 export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescription }) => {
@@ -133,7 +137,7 @@ export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescriptio
           {/* Suggested Questions */}
           {!isLoading && (
              <div className={`px-4 pb-2 pt-2 overflow-x-auto flex gap-2 no-scrollbar ${mode === 'cute' ? 'bg-pink-50/50' : 'bg-slate-50'}`}>
-               {SUGGESTED_QUESTIONS[currentMode]?.map((q, i) => (
+               {(SUGGESTED_QUESTIONS[currentMode] || []).map((q, i) => (
                  <button 
                    key={i}
                    onClick={() => handleSend(q)}
