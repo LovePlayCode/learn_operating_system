@@ -161,9 +161,9 @@ export const SwappingView: React.FC = () => {
               ))}
             </div>
             <div className="text-xs text-slate-500 font-medium hidden md:block">
-               {algo === 'FIFO' && '先进先出：简单，但可能有 Belady 异常。'}
-               {algo === 'LRU' && '最近最少使用：性能好，但硬件实现昂贵。'}
-               {algo === 'CLOCK' && '时钟置换：LRU 的近似实现，使用引用位 (Ref Bit)。'}
+               {algo === 'FIFO' && '先进先出：最简单，但可能出现 Belady 异常（物理页增多缺页反而增多）。'}
+               {algo === 'LRU' && '最近最少使用：性能接近最优，但需要硬件支持（时间戳/栈），开销大。'}
+               {algo === 'CLOCK' && '时钟置换：LRU 的近似算法，利用引用位 (Ref Bit) 给予“第二次机会”。'}
             </div>
          </div>
 
@@ -199,7 +199,7 @@ export const SwappingView: React.FC = () => {
             {/* RAM Frames */}
             <div className="relative">
                <h4 className="absolute -top-8 left-0 text-xs font-bold uppercase text-slate-400 flex items-center gap-2">
-                  <Database size={14}/> 物理内存 (3 Frames)
+                  <Database size={14}/> 物理内存 (3 页框)
                </h4>
                
                <div className="flex gap-6">
@@ -212,7 +212,7 @@ export const SwappingView: React.FC = () => {
                           {/* Clock Hand Pointer */}
                           {algo === 'CLOCK' && (
                             <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all duration-300 ${isClockHand ? 'opacity-100 translate-y-2' : 'opacity-0'}`}>
-                               <div className="text-orange-500 font-bold text-xs mb-1 whitespace-nowrap">Clock Hand</div>
+                               <div className="text-orange-500 font-bold text-xs mb-1 whitespace-nowrap">时钟指针</div>
                                <div className="w-0.5 h-4 bg-orange-500 mx-auto"></div>
                                <div className="w-2 h-2 bg-orange-500 rotate-45 mx-auto -mt-1"></div>
                             </div>
@@ -229,7 +229,7 @@ export const SwappingView: React.FC = () => {
                                  <span className="text-[10px] text-slate-400 mt-2">Page #{frame.pageId}</span>
                                </>
                              ) : (
-                               <span className="text-slate-300 text-xs">Empty</span>
+                               <span className="text-slate-300 text-xs">空 (Empty)</span>
                              )}
 
                              {/* Metadata Badges */}
@@ -247,7 +247,7 @@ export const SwappingView: React.FC = () => {
                              </div>
                           </div>
                           
-                          <div className="text-center mt-2 text-xs font-mono text-slate-400">Frame {idx}</div>
+                          <div className="text-center mt-2 text-xs font-mono text-slate-400">页框 {idx}</div>
                        </div>
                      );
                   })}
@@ -264,19 +264,19 @@ export const SwappingView: React.FC = () => {
                <div className="flex-1 overflow-y-auto h-64 space-y-2 pr-1 custom-scrollbar">
                   {[...history].reverse().map((h, i) => (
                     <div key={i} className={`flex justify-between items-center p-2 rounded-lg text-xs border ${h.result === 'HIT' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
-                       <span className="font-bold">Access Page {h.page}</span>
+                       <span className="font-bold">访问页面 {h.page}</span>
                        <span className="flex items-center gap-1 font-bold">
                          {h.result === 'HIT' ? <CheckCircle size={12}/> : <AlertOctagon size={12}/>}
                          {h.result}
                        </span>
                     </div>
                   ))}
-                  {history.length === 0 && <div className="text-slate-300 text-center text-xs py-4">Waiting for execution...</div>}
+                  {history.length === 0 && <div className="text-slate-300 text-center text-xs py-4">等待执行...</div>}
                </div>
             </div>
 
             <div className={`${styles.card} p-5 text-center`}>
-               <div className="text-xs font-bold uppercase text-slate-400 mb-1">TLB/Page Hit Rate</div>
+               <div className="text-xs font-bold uppercase text-slate-400 mb-1">命中率 (Hit Rate)</div>
                <div className={`text-3xl font-black ${parseInt(hitRate) > 50 ? 'text-green-500' : 'text-orange-500'}`}>
                  {hitRate}%
                </div>

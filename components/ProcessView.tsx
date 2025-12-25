@@ -188,7 +188,7 @@ const ProgramToProcessView = () => {
                    <div className="h-4 bg-blue-100 rounded border border-blue-200 text-[8px] flex items-center justify-center text-blue-700">.data (Init)</div>
                    <div className="h-4 bg-slate-100 rounded border border-slate-200 text-[8px] flex items-center justify-center text-slate-400">Headers</div>
                 </div>
-                <div className="text-xs text-slate-400 mt-4 text-center px-4">Passive Entity<br/>(静态实体)</div>
+                <div className="text-xs text-slate-400 mt-4 text-center px-4">静态实体<br/>(Passive Entity)</div>
              </div>
           </div>
 
@@ -200,7 +200,7 @@ const ProgramToProcessView = () => {
                  <div className="bg-white p-3 rounded-full shadow-lg border animate-bounce z-10">
                     <ArrowRight size={24} className={mode === 'cute' ? 'text-pink-400' : 'text-blue-600'}/>
                  </div>
-                 <div className="mt-2 text-[10px] font-bold uppercase text-slate-400 bg-white px-2 py-0.5 rounded border">OS Loader</div>
+                 <div className="mt-2 text-[10px] font-bold uppercase text-slate-400 bg-white px-2 py-0.5 rounded border">加载器 (Loader)</div>
                </>
              )}
           </div>
@@ -209,24 +209,24 @@ const ProgramToProcessView = () => {
           <div className="flex-1 flex flex-col items-center justify-center">
              <div className={`w-full max-w-md h-[450px] rounded-[2rem] border-4 relative flex flex-col items-center pt-10 shadow-2xl transition-all ${mode === 'cute' ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-300'}`}>
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-4 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center gap-2">
-                   <Zap size={14} fill="currentColor"/> RAM (Memory)
+                   <Zap size={14} fill="currentColor"/> 物理内存 (RAM)
                 </div>
 
                 {/* Process Address Space */}
                 {isActive('mem-static') ? (
                   <div className="w-64 flex-1 flex flex-col gap-1 mb-8 animate-in zoom-in duration-500">
-                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0xFFFFFFFF</span><span>High Addr</span></div>
+                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0xFFFFFFFF</span><span>高地址</span></div>
                      
                      {/* Kernel Space */}
                      <div className="h-12 bg-slate-200 rounded-t-lg border-2 border-slate-300 border-dashed flex items-center justify-center text-xs text-slate-400 font-mono">
-                        Kernel Space
+                        内核空间 (Kernel)
                      </div>
 
                      {/* Stack */}
                      <div className={`transition-all duration-700 h-24 rounded border-2 flex flex-col items-center justify-center text-xs font-bold relative ${isActive('mem-dynamic') ? (mode === 'cute' ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-indigo-100 border-indigo-300 text-indigo-700') : 'opacity-0'}`}>
-                        Stack (栈)
-                        <span className="text-[9px] font-normal opacity-70">Local Vars / Return Addr</span>
-                        <div className="absolute bottom-1 right-2 text-[8px] opacity-50">⬇ Grows Down</div>
+                        栈 (Stack)
+                        <span className="text-[9px] font-normal opacity-70">局部变量 / 返回地址</span>
+                        <div className="absolute bottom-1 right-2 text-[8px] opacity-50">⬇ 向下增长</div>
                      </div>
 
                      {/* Empty / Heap Gap */}
@@ -236,28 +236,28 @@ const ProgramToProcessView = () => {
 
                      {/* Heap */}
                      <div className={`transition-all duration-700 h-16 rounded border-2 flex flex-col items-center justify-center text-xs font-bold relative ${isActive('mem-dynamic') ? (mode === 'cute' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-amber-100 border-amber-300 text-amber-700') : 'opacity-0'}`}>
-                        Heap (堆)
+                        堆 (Heap)
                         <span className="text-[9px] font-normal opacity-70">malloc / new</span>
-                        <div className="absolute top-1 right-2 text-[8px] opacity-50">⬆ Grows Up</div>
+                        <div className="absolute top-1 right-2 text-[8px] opacity-50">⬆ 向上增长</div>
                      </div>
 
                      {/* Data */}
                      <div className={`h-10 rounded border-2 flex items-center justify-center text-xs font-bold ${mode === 'cute' ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-sky-100 border-sky-300 text-sky-700'}`}>
-                        .data / .bss
+                        数据段 (.data/.bss)
                      </div>
 
                      {/* Text */}
                      <div className={`h-16 rounded-b-lg border-2 flex flex-col items-center justify-center text-xs font-bold ${mode === 'cute' ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-green-100 border-green-300 text-green-700'}`}>
-                        .text (Code Segment)
-                        <span className="text-[9px] font-normal opacity-70">Binary Instructions</span>
+                        代码段 (.text)
+                        <span className="text-[9px] font-normal opacity-70">二进制指令</span>
                      </div>
 
-                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0x00000000</span><span>Low Addr</span></div>
+                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0x00000000</span><span>低地址</span></div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
                      <Box size={48} className="mb-2 opacity-50"/>
-                     <span className="text-sm">Empty Space</span>
+                     <span className="text-sm">空闲空间</span>
                   </div>
                 )}
                 
@@ -286,7 +286,7 @@ const ProgramToProcessView = () => {
                    <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg text-white ${mode === 'cute' ? 'bg-gradient-to-r from-pink-400 to-orange-400' : 'bg-slate-800'}`}>
                       <PlayCircle size={24} className="animate-pulse"/>
                       <div>
-                         <div className="text-xs font-bold opacity-80 uppercase">CPU Execute</div>
+                         <div className="text-xs font-bold opacity-80 uppercase">CPU 执行</div>
                          <div className="font-mono font-bold">PC -> 0x0804800 (main)</div>
                       </div>
                    </div>
@@ -395,7 +395,7 @@ const PCBStructureView = () => {
                      className={`relative group cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'ID' ? (mode === 'cute' ? 'bg-purple-50 border-purple-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
                    >
                       <div className="absolute left-0 top-2 bottom-2 w-1 bg-purple-400 rounded-full"></div>
-                      <h4 className="text-xs font-bold uppercase text-purple-500 mb-2 pl-3">Identifiers</h4>
+                      <h4 className="text-xs font-bold uppercase text-purple-500 mb-2 pl-3">标识符 (Identifiers)</h4>
                       <div className="grid grid-cols-2 gap-4 pl-2">
                          <div className={`p-2 rounded-lg border flex justify-between items-center bg-white ${mode === 'cute' ? 'border-purple-100' : 'border-slate-200'}`}>
                             <span className="text-xs text-slate-500 font-bold">PID</span>
@@ -414,7 +414,7 @@ const PCBStructureView = () => {
                      className={`relative group cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'CPU' ? (mode === 'cute' ? 'bg-blue-50 border-blue-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
                    >
                       <div className="absolute left-0 top-2 bottom-2 w-1 bg-blue-400 rounded-full"></div>
-                      <h4 className="text-xs font-bold uppercase text-blue-500 mb-2 pl-3">CPU Context (Registers)</h4>
+                      <h4 className="text-xs font-bold uppercase text-blue-500 mb-2 pl-3">CPU 上下文 (Registers)</h4>
                       
                       <div className={`pl-2`}>
                          <div className="grid grid-cols-4 gap-2 mb-2">
@@ -447,7 +447,7 @@ const PCBStructureView = () => {
                         className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'MEM' ? (mode === 'cute' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
                       >
                          <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-full"></div>
-                         <h4 className="text-xs font-bold uppercase text-emerald-500 mb-2 pl-3">Memory (mm)</h4>
+                         <h4 className="text-xs font-bold uppercase text-emerald-500 mb-2 pl-3">内存描述符 (mm)</h4>
                          <div className="bg-white p-2 rounded border space-y-1 pl-3">
                             <div className="flex items-center gap-1 text-xs font-bold text-slate-600">
                                <Box size={12}/> mm_struct
@@ -464,7 +464,7 @@ const PCBStructureView = () => {
                         className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'SCHED' ? (mode === 'cute' ? 'bg-orange-50 border-orange-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
                       >
                          <div className="absolute left-0 top-2 bottom-2 w-1 bg-orange-400 rounded-full"></div>
-                         <h4 className="text-xs font-bold uppercase text-orange-500 mb-2 pl-3">Scheduling</h4>
+                         <h4 className="text-xs font-bold uppercase text-orange-500 mb-2 pl-3">调度信息 (Sched)</h4>
                          <div className="bg-white p-2 rounded border space-y-1 pl-3">
                             <div className="flex justify-between text-[10px]">
                                <span className="text-slate-500">Prio</span>
@@ -484,7 +484,7 @@ const PCBStructureView = () => {
                      className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'FILES' ? (mode === 'cute' ? 'bg-sky-50 border-sky-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
                    >
                       <div className="absolute left-0 top-2 bottom-2 w-1 bg-sky-400 rounded-full"></div>
-                      <h4 className="text-xs font-bold uppercase text-sky-500 mb-2 pl-3">Files (FD Table)</h4>
+                      <h4 className="text-xs font-bold uppercase text-sky-500 mb-2 pl-3">文件表 (FD Table)</h4>
                       <div className="flex flex-wrap gap-1 pl-2">
                          {activeProcess.files.map((f, i) => (
                            <div key={i} className="px-2 py-1 rounded border text-[10px] bg-white flex items-center gap-1 shadow-sm">
@@ -859,7 +859,7 @@ const SchedulerView = () => {
              {(algorithm === AlgorithmType.RR || algorithm === AlgorithmType.LOTTERY) && (
                <div className="flex flex-col w-24">
                  <label className="text-[10px] uppercase font-bold text-slate-400">
-                   {algorithm === AlgorithmType.LOTTERY ? '时间片 (Slice)' : '时间片 (Quantum)'}
+                   {algorithm === AlgorithmType.LOTTERY ? '彩票数 (Tickets)' : '时间片 (Slice)'}
                  </label>
                  <input 
                    type="number" min="1" max="10" value={timeSlice}
@@ -927,7 +927,7 @@ const SchedulerView = () => {
              <div className={`${styles.card} p-6 flex flex-col min-h-[500px]`}>
                  <h4 className={`font-bold mb-4 flex items-center gap-2 ${styles.text.primary}`}>
                     <Activity size={16}/> CPU 调度图 (Gantt Chart)
-                    <span className="text-xs font-normal bg-slate-100 px-2 py-1 rounded ml-2 font-mono">Time: {time}s</span>
+                    <span className="text-xs font-normal bg-slate-100 px-2 py-1 rounded ml-2 font-mono">当前时间: {time}s</span>
                  </h4>
                  
                  <div className="relative h-24 w-full bg-slate-50 rounded-xl overflow-x-auto flex border border-slate-200 items-stretch" onMouseLeave={() => setTooltip(null)}>
@@ -963,11 +963,11 @@ const SchedulerView = () => {
                  {/* Stats */}
                  <div className="mt-auto pt-6 grid grid-cols-2 gap-4">
                      <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-700'}`}>
-                        <div className="text-[10px] uppercase font-bold opacity-60">Avg Turnaround</div>
+                        <div className="text-[10px] uppercase font-bold opacity-60">平均周转时间</div>
                         <div className="text-2xl font-mono font-bold">{avgTurnaround}s</div>
                      </div>
                      <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                        <div className="text-[10px] uppercase font-bold opacity-60">Avg Waiting</div>
+                        <div className="text-[10px] uppercase font-bold opacity-60">平均等待时间</div>
                         <div className="text-2xl font-mono font-bold">{avgWaiting}s</div>
                      </div>
                  </div>

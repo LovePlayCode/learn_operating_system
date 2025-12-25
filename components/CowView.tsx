@@ -66,9 +66,9 @@ export const CowView: React.FC = () => {
           
           {/* Parent Process Page Table */}
           <div className="flex flex-col items-center gap-4">
-             <h4 className="font-bold text-slate-500 uppercase text-xs">Parent Process (PID 100)</h4>
+             <h4 className="font-bold text-slate-500 uppercase text-xs">父进程 (PID 100)</h4>
              <div className={`${styles.card} p-4 w-48 border-2 ${mode === 'cute' ? 'border-blue-200' : 'border-slate-300'}`}>
-                <div className="text-center text-sm font-bold border-b pb-2 mb-2">Page Table</div>
+                <div className="text-center text-sm font-bold border-b pb-2 mb-2">页表 (Page Table)</div>
                 <div className="flex items-center justify-between bg-slate-50 p-2 rounded mb-1">
                    <span className="text-xs font-mono text-slate-500">VPN 1</span>
                    <ArrowRight size={14} className="text-slate-300"/>
@@ -78,7 +78,7 @@ export const CowView: React.FC = () => {
                 <div className={`text-[10px] text-center font-bold px-2 py-1 rounded transition-colors ${
                    hasForked ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'
                 }`}>
-                   {hasForked ? 'READ-ONLY (COW)' : 'READ-WRITE'}
+                   {hasForked ? '只读 (COW)' : '读写 (RW)'}
                 </div>
              </div>
           </div>
@@ -86,14 +86,14 @@ export const CowView: React.FC = () => {
           {/* Physical Memory */}
           <div className="flex flex-col gap-8 relative">
              <h4 className="absolute -top-10 left-1/2 -translate-x-1/2 font-bold text-slate-400 uppercase text-xs flex items-center gap-2">
-               <Layers size={14}/> Physical RAM
+               <Layers size={14}/> 物理内存 (RAM)
              </h4>
 
              {/* Frame 50 (Original) */}
              <div className={`w-40 h-32 rounded-2xl border-4 flex flex-col items-center justify-center relative transition-all duration-500 ${
                hasForked ? 'border-orange-300 bg-orange-50' : 'border-blue-300 bg-blue-50'
              }`}>
-                <div className="text-2xl font-black text-slate-700">DATA A</div>
+                <div className="text-2xl font-black text-slate-700">数据 A</div>
                 <div className="text-[10px] font-mono text-slate-400 mt-1">PFN 50</div>
                 {hasForked && <Lock size={16} className="absolute top-2 right-2 text-orange-500" />}
              </div>
@@ -101,10 +101,10 @@ export const CowView: React.FC = () => {
              {/* Frame 51 (New Copy) */}
              {hasWritten && (
                 <div className="w-40 h-32 rounded-2xl border-4 border-green-400 bg-green-50 flex flex-col items-center justify-center relative animate-in zoom-in duration-500">
-                   <div className="text-2xl font-black text-slate-700">DATA A'</div>
+                   <div className="text-2xl font-black text-slate-700">数据 A'</div>
                    <div className="text-[10px] font-mono text-slate-400 mt-1">PFN 51</div>
                    <div className="absolute -left-20 top-1/2 -translate-y-1/2 text-[10px] text-green-600 font-bold bg-green-100 px-2 py-1 rounded-full whitespace-nowrap">
-                      Copied!
+                      已复制 (Copied)
                    </div>
                 </div>
              )}
@@ -112,9 +112,9 @@ export const CowView: React.FC = () => {
 
           {/* Child Process Page Table */}
           <div className={`flex flex-col items-center gap-4 transition-opacity duration-500 ${hasForked ? 'opacity-100' : 'opacity-0 translate-y-4'}`}>
-             <h4 className="font-bold text-slate-500 uppercase text-xs">Child Process (PID 101)</h4>
+             <h4 className="font-bold text-slate-500 uppercase text-xs">子进程 (PID 101)</h4>
              <div className={`${styles.card} p-4 w-48 border-2 ${mode === 'cute' ? 'border-pink-200' : 'border-slate-300'}`}>
-                <div className="text-center text-sm font-bold border-b pb-2 mb-2">Page Table</div>
+                <div className="text-center text-sm font-bold border-b pb-2 mb-2">页表 (Page Table)</div>
                 <div className="flex items-center justify-between bg-slate-50 p-2 rounded mb-1">
                    <span className="text-xs font-mono text-slate-500">VPN 1</span>
                    <ArrowRight size={14} className="text-slate-300"/>
@@ -126,7 +126,7 @@ export const CowView: React.FC = () => {
                 <div className={`text-[10px] text-center font-bold px-2 py-1 rounded transition-colors ${
                    hasWritten ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
                 }`}>
-                   {hasWritten ? 'READ-WRITE' : 'READ-ONLY (COW)'}
+                   {hasWritten ? '读写 (RW)' : '只读 (COW)'}
                 </div>
              </div>
           </div>
