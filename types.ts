@@ -50,12 +50,16 @@ export interface Process {
   color: string;
   startTime: number | null;
   completionTime: number | null;
+  tickets: number; // For Lottery Scheduling
 }
 
 export enum AlgorithmType {
   FIFO = 'FIFO',
   RR = 'RR',
-  MLFQ = 'MLFQ'
+  MLFQ = 'MLFQ',
+  SJF = 'SJF',       // Shortest Job First
+  SRTF = 'SRTF',     // Shortest Remaining Time First
+  LOTTERY = 'LOTTERY' // Proportional Share
 }
 
 export interface TimeSlice {
@@ -63,6 +67,9 @@ export interface TimeSlice {
   startTime: number;
   endTime: number;
   color: string;
+  // Contextual info for tooltips
+  priority?: number; 
+  tickets?: number;
 }
 
 // Concurrency Types

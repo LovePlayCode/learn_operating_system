@@ -1,8 +1,95 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { Play, Pause, RotateCcw, Plus, Clock, Activity, ListOrdered, GitCommit, ArrowRight, LayoutTemplate } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Clock, Activity, ListOrdered, GitCommit, ArrowRight, LayoutTemplate, Ticket, Info, FileDigit, Cpu, Hash, HardDrive, ScanFace, Box, Layers, FolderOpen, BookOpen, ChevronRight } from 'lucide-react';
 import { Process, ProcessState, AlgorithmType, TimeSlice } from '../types';
+
+const ALGO_DESCRIPTIONS: Record<AlgorithmType, string> = {
+  [AlgorithmType.FIFO]: "先来先服务 (FIFO): 非抢占式。严格按照到达顺序执行。简单，但存在“护航效应”，短任务可能被长任务阻塞。",
+  [AlgorithmType.RR]: "时间片轮转 (RR): 抢占式。每个进程分配固定时间片。公平性好，响应时间短，适用于分时系统。",
+  [AlgorithmType.MLFQ]: "多级反馈队列: 动态调整。通常包含多个队列，优先级递减，时间片递增。I/O 密集型保持高优先级。",
+  [AlgorithmType.SJF]: "最短任务优先 (SJF): 非抢占式。选择预估 Burst Time 最短的进程执行到底。平均等待时间最优，但长作业可能面临“饥饿”。",
+  [AlgorithmType.SRTF]: "最短完成时间优先 (SRTF): SJF 的抢占式版本。如果新到达进程剩余时间更短，则抢占当前进程。吞吐量高。",
+  [AlgorithmType.LOTTERY]: "比例/彩票调度 (Proportional): 概率性调度。进程持有一定数量彩票，CPU 随机抽取。票数越多，获得 CPU 概率越高，实现比例分配。"
+};
+
+// --- Knowledge Base for PCB ---
+const PCB_KNOWLEDGE = {
+  'INTRO': {
+    title: '进程控制块 (PCB)',
+    subtitle: 'struct task_struct',
+    desc: 'PCB 是操作系统内核中描述进程的数据结构。它是进程存在的唯一标志。内核通过 PCB 来管理进程的生命周期、资源分配和调度。',
+    points: [
+      'Linux 中对应 struct task_struct',
+      '包含进程所有运行时信息',
+      '常驻内核内存 (Kernel Space)',
+      '上下文切换的核心对象'
+    ]
+  },
+  'ID': {
+    title: '标识符 (Identifiers)',
+    subtitle: 'PID & PPID',
+    desc: '每个进程都有唯一的 ID (PID)。进程通常由父进程创建 (fork)，因此也有父进程 ID (PPID)。',
+    points: [
+      'PID: 进程唯一编号，用于 kill 或查找',
+      'PPID: 父进程编号，形成进程树',
+      'UID/GID: 决定进程的文件访问权限'
+    ]
+  },
+  'STATE': {
+    title: '进程状态 (State)',
+    subtitle: 'volatile long state',
+    desc: '记录进程当前处于什么阶段。调度器根据状态决定是否将 CPU 分配给该进程。',
+    points: [
+      'Running: 正在 CPU 上执行',
+      'Ready: 准备好执行，等待调度',
+      'Blocked: 等待 I/O 或锁，不可被调度',
+      'Zombie: 已退出但父进程未回收'
+    ]
+  },
+  'CPU': {
+    title: '处理器上下文 (Context)',
+    subtitle: 'struct thread_struct',
+    desc: '当进程被切出 CPU 时，必须保存当前的寄存器值（存档），以便下次恢复执行（读档）。',
+    points: [
+      'PC (Program Counter): 下一条指令地址',
+      'SP (Stack Pointer): 当前栈顶位置',
+      'General Regs: AX, BX, CX 等通用寄存器',
+      '这是实现“并发”的硬件基础'
+    ]
+  },
+  'MEM': {
+    title: '内存描述符 (Memory)',
+    subtitle: 'struct mm_struct *mm',
+    desc: '指向进程的虚拟地址空间信息。包含页表指针、代码段、数据段、堆和栈的起始/结束地址。',
+    points: [
+      '页表基址 (CR3): 用于虚拟地址转换',
+      'VMA: 虚拟内存区域链表',
+      '隔离性: 确保进程不能访问其他进程内存'
+    ]
+  },
+  'SCHED': {
+    title: '调度信息 (Scheduling)',
+    subtitle: 'prio, policy, rt_priority',
+    desc: '调度器根据这些信息决定谁先运行，以及运行多久。',
+    points: [
+      'Priority: 优先级 (Nice value)',
+      'Policy: 调度策略 (如 SCHED_NORMAL)',
+      'Time Slice: 剩余时间片',
+      'cpus_allowed: 可以在哪些核上运行'
+    ]
+  },
+  'FILES': {
+    title: '打开文件表 (Files)',
+    subtitle: 'struct files_struct *files',
+    desc: '记录进程打开的所有文件。文件描述符 (FD) 就是这个数组的下标。',
+    points: [
+      'FD 0, 1, 2: 标准输入、输出、错误',
+      'fd_array[]: 指向系统级打开文件表的指针',
+      '资源限制: 每个进程能打开的文件数是有限的'
+    ]
+  }
+};
 
 // --- Helper Components ---
 const ProcessBox = ({ p, compact = false }: { p: Process, compact?: boolean }) => {
@@ -17,8 +104,242 @@ const ProcessBox = ({ p, compact = false }: { p: Process, compact?: boolean }) =
     `}
     style={{ borderColor: 'currentColor' }}>
       <div className="font-bold text-sm truncate">{p.name}</div>
-      {!compact && <div className="text-[10px] opacity-70">Burst: {p.remainingTime}/{p.burstTime}</div>}
+      {!compact && <div className="text-[10px] opacity-70">执行: {p.remainingTime}/{p.burstTime}</div>}
       <div className={`absolute top-0 right-0 w-3 h-3 rounded-full -mt-1 -mr-1 ${p.state === ProcessState.RUNNING ? 'bg-green-400 animate-pulse' : 'bg-slate-300'}`}></div>
+    </div>
+  );
+};
+
+// --- New PCB Visualizer (Diagram Mode) ---
+const PCBStructureView = () => {
+  const { styles, mode } = useTheme();
+  const [selectedId, setSelectedId] = useState<number>(1);
+  const [activeSection, setActiveSection] = useState<keyof typeof PCB_KNOWLEDGE>('INTRO');
+  
+  // Mock Data specific for visualization
+  const pcbData = [
+    { id: 1, name: "System_Init", state: "RUNNING", prio: 0, pc: 0x00401A, sp: 0x7FFF0, regs: { ax: 0x1A, bx: 0x00, cx: 0xFF }, files: ["stdin", "stdout", "sys.log"] },
+    { id: 102, name: "Chrome_Tab", state: "READY", prio: 5, pc: 0x0080B2, sp: 0x7FFA0, regs: { ax: 0x00, bx: 0x12, cx: 0x00 }, files: ["cache.db"] },
+    { id: 105, name: "VS_Code", state: "BLOCKED", prio: 2, pc: 0x0091CC, sp: 0x7FFC8, regs: { ax: 0xEE, bx: 0xEE, cx: 0x01 }, files: ["project.ts", "node_modules"] },
+    { id: 108, name: "Spotify", state: "READY", prio: 4, pc: 0x002011, sp: 0x7FF10, regs: { ax: 0x11, bx: 0x44, cx: 0x22 }, files: ["song.mp3", "audio_out"] },
+  ];
+
+  const activeProcess = pcbData.find(p => p.id === selectedId) || pcbData[0];
+  const info = PCB_KNOWLEDGE[activeSection];
+
+  const getColorByState = (s: string) => {
+    switch(s) {
+      case 'RUNNING': return 'bg-green-500 text-white';
+      case 'READY': return 'bg-blue-500 text-white';
+      case 'BLOCKED': return 'bg-amber-500 text-white';
+      default: return 'bg-slate-500 text-white';
+    }
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
+       {/* Left: Process List */}
+       <div className={`${styles.card} p-4 w-full lg:w-56 shrink-0 flex flex-col gap-3`}>
+          <h3 className={`font-bold flex items-center gap-2 ${styles.text.primary} text-sm`}>
+            <ListOrdered size={16}/> 进程列表
+          </h3>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 h-32 lg:h-auto">
+             {pcbData.map(p => (
+               <button 
+                 key={p.id}
+                 onClick={() => setSelectedId(p.id)}
+                 className={`w-full text-left p-3 rounded-xl border-2 transition-all flex items-center justify-between group ${
+                   selectedId === p.id 
+                     ? (mode === 'cute' ? 'bg-pink-50 border-pink-300 shadow-sm' : 'bg-blue-50 border-blue-400 shadow-sm') 
+                     : 'bg-white border-transparent hover:bg-slate-50'
+                 }`}
+               >
+                 <div>
+                   <div className={`font-bold text-xs ${styles.text.primary}`}>{p.name}</div>
+                   <div className="text-[10px] text-slate-400 font-mono">PID: {p.id}</div>
+                 </div>
+                 <div className={`w-2 h-2 rounded-full ${p.state === 'RUNNING' ? 'bg-green-400 animate-pulse' : p.state === 'BLOCKED' ? 'bg-amber-400' : 'bg-blue-300'}`}></div>
+               </button>
+             ))}
+          </div>
+       </div>
+
+       {/* Center: Interactive PCB Diagram */}
+       <div className="flex-1 overflow-y-auto">
+          <div className="relative max-w-xl mx-auto flex flex-col gap-4">
+             <div className="bg-slate-100/50 p-2 rounded-lg text-center text-xs text-slate-400 mb-2 border border-dashed border-slate-300">
+                👇 点击下方各个模块，查看右侧知识点详解
+             </div>
+
+             {/* Main PCB Block */}
+             <div className={`${styles.card} overflow-hidden border-4 relative transition-all duration-300 ${mode === 'cute' ? 'border-pink-200' : 'border-slate-700'}`}>
+                
+                {/* Header (State) */}
+                <div 
+                  onClick={() => setActiveSection('STATE')}
+                  className={`cursor-pointer p-4 border-b-2 flex justify-between items-center transition-colors ${activeSection === 'STATE' ? 'bg-opacity-100' : 'bg-opacity-90'} ${mode === 'cute' ? 'bg-pink-100 border-pink-200 hover:bg-pink-200' : 'bg-slate-800 text-white border-slate-600 hover:bg-slate-700'}`}
+                >
+                   <div>
+                      <h2 className="text-lg font-black tracking-wider">task_struct</h2>
+                      <p className="text-[10px] opacity-70 font-mono">Kernel Addr: 0xC000{activeProcess.id}</p>
+                   </div>
+                   <div className={`px-3 py-1 rounded-lg font-bold text-xs shadow-sm ${getColorByState(activeProcess.state)}`}>
+                      {activeProcess.state}
+                   </div>
+                </div>
+
+                <div className="p-6 grid gap-6">
+                   
+                   {/* 1. Identifier Section */}
+                   <div 
+                     onClick={() => setActiveSection('ID')}
+                     className={`relative group cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'ID' ? (mode === 'cute' ? 'bg-purple-50 border-purple-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
+                   >
+                      <div className="absolute left-0 top-2 bottom-2 w-1 bg-purple-400 rounded-full"></div>
+                      <h4 className="text-xs font-bold uppercase text-purple-500 mb-2 pl-3">Identifiers</h4>
+                      <div className="grid grid-cols-2 gap-4 pl-2">
+                         <div className={`p-2 rounded-lg border flex justify-between items-center bg-white ${mode === 'cute' ? 'border-purple-100' : 'border-slate-200'}`}>
+                            <span className="text-xs text-slate-500 font-bold">PID</span>
+                            <span className="font-mono font-bold">{activeProcess.id}</span>
+                         </div>
+                         <div className={`p-2 rounded-lg border flex justify-between items-center bg-white ${mode === 'cute' ? 'border-purple-100' : 'border-slate-200'}`}>
+                            <span className="text-xs text-slate-500 font-bold">PPID</span>
+                            <span className="font-mono font-bold">0</span>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* 2. CPU Context */}
+                   <div 
+                     onClick={() => setActiveSection('CPU')}
+                     className={`relative group cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'CPU' ? (mode === 'cute' ? 'bg-blue-50 border-blue-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
+                   >
+                      <div className="absolute left-0 top-2 bottom-2 w-1 bg-blue-400 rounded-full"></div>
+                      <h4 className="text-xs font-bold uppercase text-blue-500 mb-2 pl-3">CPU Context (Registers)</h4>
+                      
+                      <div className={`pl-2`}>
+                         <div className="grid grid-cols-4 gap-2 mb-2">
+                            {['AX', 'BX', 'CX', 'DX'].map((reg, i) => (
+                               <div key={reg} className="text-center bg-white border rounded py-1 shadow-sm text-[10px] font-mono">
+                                  <span className="text-slate-400 block text-[8px]">{reg}</span>
+                                  {i === 0 ? `0x${activeProcess.regs.ax.toString(16).toUpperCase()}` : 
+                                   i === 1 ? `0x${activeProcess.regs.bx.toString(16).toUpperCase()}` :
+                                   i === 2 ? `0x${activeProcess.regs.cx.toString(16).toUpperCase()}` : '0x00'}
+                               </div>
+                            ))}
+                         </div>
+                         <div className="flex gap-2 text-[10px]">
+                            <div className="flex-1 bg-slate-700 text-white rounded px-2 py-1 flex justify-between">
+                               <span className="opacity-60">PC</span>
+                               <span className="font-mono text-yellow-400">0x{activeProcess.pc.toString(16).toUpperCase()}</span>
+                            </div>
+                            <div className="flex-1 bg-slate-600 text-white rounded px-2 py-1 flex justify-between">
+                               <span className="opacity-60">SP</span>
+                               <span className="font-mono">0x{activeProcess.sp.toString(16).toUpperCase()}</span>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* 3. Memory & Scheduling */}
+                   <div className="grid grid-cols-2 gap-4">
+                      <div 
+                        onClick={() => setActiveSection('MEM')}
+                        className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'MEM' ? (mode === 'cute' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
+                      >
+                         <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-full"></div>
+                         <h4 className="text-xs font-bold uppercase text-emerald-500 mb-2 pl-3">Memory (mm)</h4>
+                         <div className="bg-white p-2 rounded border space-y-1 pl-3">
+                            <div className="flex items-center gap-1 text-xs font-bold text-slate-600">
+                               <Box size={12}/> mm_struct
+                            </div>
+                            <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                               <div className="h-full bg-emerald-400 w-2/3"></div>
+                            </div>
+                            <div className="text-[9px] font-mono text-slate-400">Base: 0x1000</div>
+                         </div>
+                      </div>
+
+                      <div 
+                        onClick={() => setActiveSection('SCHED')}
+                        className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'SCHED' ? (mode === 'cute' ? 'bg-orange-50 border-orange-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
+                      >
+                         <div className="absolute left-0 top-2 bottom-2 w-1 bg-orange-400 rounded-full"></div>
+                         <h4 className="text-xs font-bold uppercase text-orange-500 mb-2 pl-3">Scheduling</h4>
+                         <div className="bg-white p-2 rounded border space-y-1 pl-3">
+                            <div className="flex justify-between text-[10px]">
+                               <span className="text-slate-500">Prio</span>
+                               <span className="font-bold">{activeProcess.prio}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                               <span className="text-slate-500">Slice</span>
+                               <span className="font-bold">20ms</span>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* 4. Files */}
+                   <div 
+                     onClick={() => setActiveSection('FILES')}
+                     className={`relative cursor-pointer p-2 -m-2 rounded-xl border-2 border-transparent transition-all ${activeSection === 'FILES' ? (mode === 'cute' ? 'bg-sky-50 border-sky-200' : 'bg-slate-100 border-slate-300') : 'hover:bg-slate-50'}`}
+                   >
+                      <div className="absolute left-0 top-2 bottom-2 w-1 bg-sky-400 rounded-full"></div>
+                      <h4 className="text-xs font-bold uppercase text-sky-500 mb-2 pl-3">Files (FD Table)</h4>
+                      <div className="flex flex-wrap gap-1 pl-2">
+                         {activeProcess.files.map((f, i) => (
+                           <div key={i} className="px-2 py-1 rounded border text-[10px] bg-white flex items-center gap-1 shadow-sm">
+                              <span className="font-mono font-bold text-slate-400">{i}:</span>
+                              <span>{f}</span>
+                           </div>
+                         ))}
+                         <div className="px-2 py-1 rounded border border-dashed text-[10px] text-slate-400 bg-white opacity-60">...</div>
+                      </div>
+                   </div>
+                
+                </div>
+             </div>
+          </div>
+       </div>
+
+       {/* Right: Info Panel */}
+       <div className={`w-full lg:w-72 shrink-0 flex flex-col transition-all duration-300 ${styles.card} overflow-hidden border-2 ${mode === 'cute' ? 'border-pink-200' : 'border-slate-200'}`}>
+          <div className={`p-5 border-b ${mode === 'cute' ? 'bg-pink-50 border-pink-100' : 'bg-slate-50 border-slate-200'}`}>
+             <h3 className={`font-bold text-lg ${styles.text.primary}`}>{info.title}</h3>
+             <div className="text-xs font-mono opacity-60 mt-1">{info.subtitle}</div>
+          </div>
+          
+          <div className="p-5 flex-1 overflow-y-auto">
+             <div className="mb-6">
+                <h4 className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-2">
+                   <BookOpen size={14}/> 核心概念
+                </h4>
+                <p className={`text-sm leading-relaxed ${styles.text.primary} text-justify`}>
+                   {info.desc}
+                </p>
+             </div>
+
+             <div>
+                <h4 className="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-2">
+                   <ChevronRight size={14}/> 关键知识点
+                </h4>
+                <ul className="space-y-3">
+                   {info.points.map((pt, i) => (
+                     <li key={i} className={`text-xs p-3 rounded-xl border flex items-start gap-2 ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${mode === 'cute' ? 'bg-pink-400' : 'bg-blue-500'}`}></div>
+                        <span className="text-slate-600 leading-snug">{pt}</span>
+                     </li>
+                   ))}
+                </ul>
+             </div>
+          </div>
+          
+          {/* Footer Hint */}
+          <div className="p-4 bg-slate-50 border-t border-slate-100 text-[10px] text-center text-slate-400 italic">
+             知识点基于 Linux 内核设计
+          </div>
+       </div>
+
     </div>
   );
 };
@@ -41,8 +362,8 @@ const LifecycleView = () => {
   const transition = (to: ProcessState) => setDemoProc(to);
 
   return (
-    <div className="flex flex-col h-full gap-6">
-      <div className={`${styles.card} p-6 flex-1 relative overflow-hidden flex flex-col items-center justify-center`}>
+    <div className="flex flex-col min-h-[700px] lg:h-full gap-6">
+      <div className={`${styles.card} p-6 h-[500px] lg:flex-1 relative overflow-hidden flex flex-col items-center justify-center`}>
          {/* Background Arrows/Flow - Simplified SVG overlay */}
          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
             {/* New -> Ready */}
@@ -84,7 +405,7 @@ const LifecycleView = () => {
       </div>
 
       {/* Controls */}
-      <div className={`${styles.card} p-6`}>
+      <div className={`${styles.card} p-6 shrink-0`}>
          <h3 className={`font-bold mb-4 ${styles.text.primary}`}>进程状态控制</h3>
          <div className="flex flex-wrap gap-4 justify-center">
             {demoProc === ProcessState.NEW && (
@@ -136,6 +457,14 @@ const SchedulerView = () => {
   const [timeSlice, setTimeSlice] = useState(2);
   const [ganttChart, setGanttChart] = useState<TimeSlice[]>([]);
   const [readyQueue, setReadyQueue] = useState<Process[]>([]);
+  const [lotteryWinner, setLotteryWinner] = useState<number | null>(null);
+  
+  // Selection State
+  const [selectedProcId, setSelectedProcId] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<{ slice: TimeSlice, rect: DOMRect } | null>(null);
+
+  // Derived selected process
+  const displayProcess = processes.find(p => p.id === selectedProcId) || null;
 
   // Helpers
   const generateColor = (id: number) => {
@@ -148,17 +477,24 @@ const SchedulerView = () => {
     const newProc: Process = {
       id,
       name: `P${id}`,
-      arrivalTime: time, // Assume dynamic arrival at current time for simplicity in interactive mode
-      burstTime: Math.floor(Math.random() * 5) + 3,
-      remainingTime: Math.floor(Math.random() * 5) + 3,
+      arrivalTime: time, 
+      burstTime: Math.floor(Math.random() * 6) + 2,
+      remainingTime: Math.floor(Math.random() * 6) + 2,
       priority: Math.floor(Math.random() * 3),
       state: ProcessState.READY,
       color: generateColor(id),
       startTime: null,
-      completionTime: null
+      completionTime: null,
+      tickets: Math.floor(Math.random() * 50) + 10 // Tickets 10-60
     };
+    // Sync Burst Time with Remaining for consistent demo
+    newProc.remainingTime = newProc.burstTime;
+
     setProcesses(prev => [...prev, newProc]);
     setReadyQueue(prev => [...prev, newProc]);
+    
+    // Auto select new process if none selected
+    if (!selectedProcId) setSelectedProcId(id);
   };
 
   const reset = () => {
@@ -167,9 +503,12 @@ const SchedulerView = () => {
     setGanttChart([]);
     setTime(0);
     setIsRunning(false);
+    setLotteryWinner(null);
+    setTooltip(null);
+    setSelectedProcId(null);
   };
 
-  // Simulation Step
+  // Simulation Step (Simplified for brevity, same logic as before)
   useEffect(() => {
     let interval: any;
     if (isRunning) {
@@ -181,215 +520,257 @@ const SchedulerView = () => {
   }, [isRunning, readyQueue, processes, algorithm]);
 
   const runStep = () => {
-    // Check if all done
     const active = processes.filter(p => p.remainingTime > 0);
     if (active.length === 0) {
       setIsRunning(false);
       return;
     }
 
+    const lastSlice = ganttChart[ganttChart.length - 1];
+    const prevProcId = (lastSlice && lastSlice.endTime === time) ? lastSlice.processId : null;
+    let sliceExpired = false;
+    if (prevProcId !== null) {
+        let duration = 0;
+        for(let i = ganttChart.length - 1; i>=0; i--) {
+             if(ganttChart[i].processId === prevProcId) duration += (ganttChart[i].endTime - ganttChart[i].startTime);
+             else break;
+        }
+        if (duration > 0 && duration % timeSlice === 0) sliceExpired = true;
+    }
+
     let currentProc: Process | null = null;
     let nextQueue = [...readyQueue];
-    
-    // Select process based on algorithm
-    if (nextQueue.length > 0) {
-      if (algorithm === AlgorithmType.FIFO) {
-        currentProc = nextQueue[0];
-      } else if (algorithm === AlgorithmType.RR) {
-        currentProc = nextQueue[0];
-      } else if (algorithm === AlgorithmType.MLFQ) {
-        // Simple priority sort (lower num = higher priority)
-        nextQueue.sort((a, b) => a.priority - b.priority);
-        currentProc = nextQueue[0];
-      }
+
+    // ... Algorithm Logic (kept identical to previous) ...
+    if (algorithm === AlgorithmType.FIFO) {
+       currentProc = nextQueue[0] || null;
+    } else if (algorithm === AlgorithmType.RR) {
+       currentProc = nextQueue[0] || null;
+    } else if (algorithm === AlgorithmType.SJF) {
+       const prevProc = processes.find(p => p.id === prevProcId);
+       if (prevProc && prevProc.remainingTime > 0) currentProc = prevProc;
+       else currentProc = [...nextQueue].sort((a, b) => a.burstTime - b.burstTime)[0] || null;
+    } else if (algorithm === AlgorithmType.SRTF) {
+       currentProc = [...nextQueue].sort((a, b) => a.remainingTime - b.remainingTime)[0] || null;
+    } else if (algorithm === AlgorithmType.MLFQ) {
+       currentProc = [...nextQueue].sort((a, b) => a.priority - b.priority)[0] || null;
+    } else if (algorithm === AlgorithmType.LOTTERY) {
+       const prevProc = processes.find(p => p.id === prevProcId);
+       if (prevProc && prevProc.remainingTime > 0 && !sliceExpired) currentProc = prevProc;
+       else {
+           const totalTickets = nextQueue.reduce((acc, p) => acc + p.tickets, 0);
+           if (totalTickets > 0) {
+              let r = Math.floor(Math.random() * totalTickets);
+              for (const p of nextQueue) {
+                  r -= p.tickets;
+                  if (r < 0) { currentProc = p; setLotteryWinner(p.id); break; }
+              }
+           }
+       }
     }
 
     if (currentProc) {
-      // Execute 1 unit
-      const updatedProc = { ...currentProc, remainingTime: currentProc.remainingTime - 1 };
+      const updatedProc = { 
+          ...currentProc, 
+          remainingTime: currentProc.remainingTime - 1,
+          startTime: currentProc.startTime === null ? time : currentProc.startTime,
+          state: ProcessState.RUNNING
+      };
       
-      // Update chart
       setGanttChart(prev => {
         const last = prev[prev.length - 1];
         if (last && last.processId === currentProc!.id) {
           return [...prev.slice(0, -1), { ...last, endTime: time + 1 }];
         }
-        return [...prev, { processId: currentProc!.id, startTime: time, endTime: time + 1, color: currentProc!.color }];
+        return [...prev, { 
+            processId: currentProc!.id, 
+            startTime: time, 
+            endTime: time + 1, 
+            color: currentProc!.color,
+            priority: currentProc!.priority, 
+            tickets: currentProc!.tickets    
+        }];
       });
 
-      // Update Process List State
-      setProcesses(prev => prev.map(p => p.id === currentProc!.id ? updatedProc : p));
+      setProcesses(prev => prev.map(p => p.id === currentProc!.id ? updatedProc : (p.state === ProcessState.RUNNING ? {...p, state: ProcessState.READY} : p)));
 
-      // Algorithm Specific Queue Logic
       if (updatedProc.remainingTime === 0) {
-         // Finished
+         setProcesses(prev => prev.map(p => p.id === currentProc!.id ? { ...p, remainingTime: 0, completionTime: time + 1, state: ProcessState.TERMINATED } : p));
          nextQueue = nextQueue.filter(p => p.id !== currentProc!.id);
       } else {
          if (algorithm === AlgorithmType.RR) {
-           // Check time slice logic implementation for simulation step
-           // For visual simplicity, we rotate every N steps. 
-           // We need to track how long it's been running.
-           // A simpler approach for this visualizer: Rotate strictly if slice expired.
-           // Since we step 1 by 1, we can check gantt chart length for this proc.
-           
-           // Hacky simulation for RR: just rotate to back of queue immediately for single step visual
-           // To do it properly we'd need a "currentBurst" counter.
-           // Let's keep it simple: RR rotates every step effectively if we just move to back? 
-           // No, that's time slice = 1.
-           // Let's implement simple "Move to back if active step % slice == 0"
-           
-           // Find consecutive duration
-           let duration = 1;
-           for(let i = ganttChart.length - 1; i>=0; i--) {
-             if(ganttChart[i].processId === currentProc.id) duration += (ganttChart[i].endTime - ganttChart[i].startTime);
-             else break;
-           }
-           
-           if (duration % timeSlice === 0) {
-              // Rotate
-              nextQueue = nextQueue.filter(p => p.id !== currentProc!.id);
-              nextQueue.push(updatedProc);
-           } else {
-              // Update in place
-              nextQueue = nextQueue.map(p => p.id === updatedProc.id ? updatedProc : p);
-           }
-
+            let duration = 1; 
+            for(let i = ganttChart.length - 1; i>=0; i--) {
+                if(ganttChart[i].processId === currentProc!.id) duration += (ganttChart[i].endTime - ganttChart[i].startTime);
+                else break;
+            }
+            if (duration % timeSlice === 0) {
+               nextQueue = nextQueue.filter(p => p.id !== currentProc!.id);
+               nextQueue.push({...updatedProc, state: ProcessState.READY});
+            } else {
+               nextQueue = nextQueue.map(p => p.id === updatedProc.id ? updatedProc : p);
+            }
+         } else if (algorithm === AlgorithmType.LOTTERY) {
+             nextQueue = nextQueue.map(p => p.id === updatedProc.id ? updatedProc : p);
          } else {
-           // Update in place
-           nextQueue = nextQueue.map(p => p.id === updatedProc.id ? updatedProc : p);
+             nextQueue = nextQueue.map(p => p.id === updatedProc.id ? updatedProc : p);
          }
       }
-      
       setReadyQueue(nextQueue);
     } else {
-      // Idle
       setGanttChart(prev => {
         const last = prev[prev.length - 1];
-        if (last && last.processId === null) {
-          return [...prev.slice(0, -1), { ...last, endTime: time + 1 }];
-        }
+        if (last && last.processId === null) return [...prev.slice(0, -1), { ...last, endTime: time + 1 }];
         return [...prev, { processId: null, startTime: time, endTime: time + 1, color: 'bg-slate-200' }];
       });
+      setLotteryWinner(null);
     }
-
     setTime(t => t + 1);
   };
 
+  // Stats
+  const finishedProcesses = processes.filter(p => p.remainingTime === 0 && p.completionTime !== null);
+  const avgTurnaround = finishedProcesses.length > 0 
+    ? (finishedProcesses.reduce((acc, p) => acc + ((p.completionTime!) - p.arrivalTime), 0) / finishedProcesses.length).toFixed(1)
+    : '--';
+  const avgWaiting = finishedProcesses.length > 0
+    ? (finishedProcesses.reduce((acc, p) => acc + (((p.completionTime!) - p.arrivalTime) - p.burstTime), 0) / finishedProcesses.length).toFixed(1)
+    : '--';
+
   return (
-    <div className="flex flex-col h-full gap-6">
+    <div className="flex flex-col gap-6">
        {/* Toolbar */}
-       <div className={`${styles.card} p-4 flex flex-wrap items-center justify-between gap-4`}>
+       <div className={`${styles.card} p-4 flex flex-wrap items-center justify-between gap-4 shrink-0`}>
           <div className="flex items-center gap-4">
              <div className="flex flex-col">
-               <label className="text-[10px] uppercase font-bold text-slate-400">Algorithm</label>
+               <label className="text-[10px] uppercase font-bold text-slate-400">调度算法 (Algorithm)</label>
                <select 
                   value={algorithm} 
                   onChange={(e) => { setAlgorithm(e.target.value as AlgorithmType); reset(); }}
-                  className={`font-bold outline-none bg-transparent ${styles.text.primary}`}
+                  className={`font-bold outline-none bg-transparent ${styles.text.primary} cursor-pointer`}
                >
                  <option value={AlgorithmType.FIFO}>先来先服务 (FIFO)</option>
                  <option value={AlgorithmType.RR}>时间片轮转 (RR)</option>
+                 <option value={AlgorithmType.SJF}>最短任务优先 (SJF)</option>
+                 <option value={AlgorithmType.SRTF}>最短完成时间 (SRTF)</option>
+                 <option value={AlgorithmType.LOTTERY}>彩票/比例调度 (Lottery)</option>
                  <option value={AlgorithmType.MLFQ}>多级反馈队列 (MLFQ)</option>
                </select>
              </div>
-             
-             {algorithm === AlgorithmType.RR && (
-               <div className="flex flex-col w-20">
-                 <label className="text-[10px] uppercase font-bold text-slate-400">Time Slice</label>
+             {(algorithm === AlgorithmType.RR || algorithm === AlgorithmType.LOTTERY) && (
+               <div className="flex flex-col w-24">
+                 <label className="text-[10px] uppercase font-bold text-slate-400">
+                   {algorithm === AlgorithmType.LOTTERY ? '时间片 (Slice)' : '时间片 (Quantum)'}
+                 </label>
                  <input 
-                   type="number" 
-                   min="1" max="10" 
-                   value={timeSlice}
+                   type="number" min="1" max="10" value={timeSlice}
                    onChange={(e) => setTimeSlice(Number(e.target.value))}
                    className={`bg-transparent font-bold w-full outline-none ${styles.text.primary}`} 
                  />
                </div>
              )}
           </div>
-
           <div className="flex items-center gap-2">
             <button onClick={() => setIsRunning(!isRunning)} className={styles.button.primary + " px-4 py-2 flex items-center gap-2"}>
-               {isRunning ? <Pause size={16}/> : <Play size={16}/>}
-               {isRunning ? "暂停" : "开始"}
+               {isRunning ? <Pause size={16}/> : <Play size={16}/>} {isRunning ? "暂停" : "开始"}
             </button>
-            <button onClick={reset} className={styles.button.icon + " p-2"}>
-               <RotateCcw size={16}/>
-            </button>
+            <button onClick={reset} className={styles.button.icon + " p-2"}><RotateCcw size={16}/></button>
             <div className="w-px h-6 bg-slate-200 mx-2"></div>
-            <button onClick={addProcess} className={`${styles.button.secondary} px-4 py-2 flex items-center gap-2 border-dashed border-2`}>
-               <Plus size={16}/> 添加进程
-            </button>
+            <button onClick={addProcess} className={`${styles.button.secondary} px-4 py-2 flex items-center gap-2 border-dashed border-2`}><Plus size={16}/> 添加进程</button>
           </div>
        </div>
 
-       {/* Main Visualization */}
-       <div className="flex flex-1 gap-6 min-h-0">
+       {/* Algorithm Info */}
+       <div className={`px-4 py-3 rounded-xl border text-xs flex gap-2 items-start shrink-0 ${mode === 'cute' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+          <Info size={16} className="shrink-0 mt-0.5"/>
+          <p>{ALGO_DESCRIPTIONS[algorithm]}</p>
+       </div>
+
+       {/* Main Content Layout - Responsive & Scrollable */}
+       <div className="flex flex-col lg:flex-row gap-6">
           
-          {/* Queue & List */}
-          <div className="w-1/3 flex flex-col gap-6">
-             <div className={`${styles.card} p-4 flex-1 overflow-auto`}>
-                <h4 className={`font-bold mb-3 flex items-center gap-2 ${styles.text.primary}`}>
-                   <ListOrdered size={16}/> 
-                   {algorithm === AlgorithmType.FIFO ? 'Ready Queue (FIFO)' : algorithm === AlgorithmType.RR ? 'Ready Queue (Circular)' : 'Priority Queues'}
+          {/* LEFT: Queue - Stack on Mobile, Side on Large */}
+          <div className="w-full lg:w-72 flex flex-col gap-6 shrink-0">
+             
+             {/* Queue - Fixed Height */}
+             <div className={`${styles.card} p-4 flex flex-col h-72`}>
+                <h4 className={`font-bold mb-3 flex items-center gap-2 text-sm ${styles.text.primary}`}>
+                   <ListOrdered size={16}/> 就绪队列
                 </h4>
-                <div className="space-y-2">
+                <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                    {readyQueue.map(p => (
-                     <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border bg-white ${mode === 'cute' ? 'shadow-sm' : ''}`}>
-                        <div className="flex items-center gap-3">
-                           <div className={`w-3 h-3 rounded-full ${p.color}`}></div>
-                           <div className="font-bold text-sm">{p.name}</div>
+                     <div 
+                        key={p.id} 
+                        onClick={() => setSelectedProcId(p.id)}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            selectedProcId === p.id 
+                                ? (mode === 'cute' ? 'bg-pink-50 border-pink-200 ring-1 ring-pink-200' : 'bg-blue-50 border-blue-200 ring-1 ring-blue-200') 
+                                : 'bg-white hover:bg-slate-50 border-slate-100'
+                        }`}
+                     >
+                        <div className="flex items-center gap-2 min-w-0">
+                           <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${p.color}`}></div>
+                           <div className="font-bold text-xs truncate">{p.name}</div>
+                           {lotteryWinner === p.id && algorithm === AlgorithmType.LOTTERY && <Ticket size={12} className="text-yellow-500 animate-bounce"/>}
                         </div>
-                        <div className="text-xs text-slate-500 font-mono">
-                           Rem: {p.remainingTime} | Prio: {p.priority}
+                        <div className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                           {p.remainingTime}s
                         </div>
                      </div>
                    ))}
-                   {readyQueue.length === 0 && (
-                     <div className="text-center py-8 text-slate-400 text-sm italic">Queue Empty</div>
-                   )}
+                   {readyQueue.length === 0 && <div className="text-center py-4 text-slate-400 text-xs italic">队列为空</div>}
                 </div>
              </div>
           </div>
 
-          {/* Gantt Chart Area */}
-          <div className={`${styles.card} flex-1 p-6 flex flex-col`}>
-             <h4 className={`font-bold mb-6 flex items-center gap-2 ${styles.text.primary}`}>
-                <Activity size={16}/> CPU Gantt Chart
-                <span className="text-xs font-normal bg-slate-100 px-2 py-1 rounded ml-2">Time: {time}</span>
-             </h4>
-             
-             <div className="relative h-24 w-full bg-slate-50 rounded-xl overflow-hidden flex border border-slate-200">
-                {ganttChart.map((slice, i) => {
-                   const duration = slice.endTime - slice.startTime;
-                   const widthPct = (duration / Math.max(time, 10)) * 100; // Auto scale a bit
-                   // For better scrolling, simpler fixed width per unit?
-                   // Let's use flex-grow based on duration
-                   return (
-                     <div 
-                        key={i} 
-                        style={{ flex: duration }}
-                        className={`${slice.processId !== null ? slice.color : 'bg-slate-100'} border-r border-white/20 relative group min-w-[20px] transition-all`}
-                     >
-                        {slice.processId !== null && (
-                          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                             P{slice.processId}
-                          </div>
-                        )}
-                        <div className="absolute bottom-0 left-0 text-[9px] text-slate-400 p-0.5 bg-white/80">{slice.startTime}</div>
-                     </div>
-                   );
-                })}
-             </div>
-
-             {/* Stats */}
-             <div className="mt-8 grid grid-cols-2 gap-4">
-                 <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-700'}`}>
-                    <div className="text-xs uppercase font-bold opacity-60">Avg Turnaround Time</div>
-                    <div className="text-2xl font-mono font-bold">--</div>
+          {/* RIGHT: Gantt & Stats - Flexible but with Min Height */}
+          <div className="flex-1 flex flex-col gap-6 min-w-0">
+             <div className={`${styles.card} p-6 flex flex-col min-h-[500px]`}>
+                 <h4 className={`font-bold mb-4 flex items-center gap-2 ${styles.text.primary}`}>
+                    <Activity size={16}/> CPU 调度图 (Gantt Chart)
+                    <span className="text-xs font-normal bg-slate-100 px-2 py-1 rounded ml-2 font-mono">Time: {time}s</span>
+                 </h4>
+                 
+                 <div className="relative h-24 w-full bg-slate-50 rounded-xl overflow-x-auto flex border border-slate-200 items-stretch" onMouseLeave={() => setTooltip(null)}>
+                    {ganttChart.map((slice, i) => {
+                       const duration = slice.endTime - slice.startTime;
+                       return (
+                         <div 
+                            key={i} 
+                            style={{ flex: duration }}
+                            className={`${slice.processId !== null ? slice.color : 'bg-slate-100'} border-r border-white/20 relative group min-w-[20px] transition-all flex items-center justify-center hover:opacity-90 cursor-pointer shrink-0`}
+                            onMouseEnter={(e) => setTooltip({ slice, rect: e.currentTarget.getBoundingClientRect() })}
+                            onClick={() => slice.processId !== null && setSelectedProcId(slice.processId)}
+                         >
+                            {slice.processId !== null && <div className="text-[10px] font-bold text-white pointer-events-none truncate px-1">P{slice.processId}</div>}
+                         </div>
+                       );
+                    })}
                  </div>
-                 <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                    <div className="text-xs uppercase font-bold opacity-60">Avg Waiting Time</div>
-                    <div className="text-2xl font-mono font-bold">--</div>
+                 
+                 {/* Tooltip */}
+                 {tooltip && tooltip.slice.processId !== null && (
+                    <div className="fixed z-50 pointer-events-none" style={{ top: tooltip.rect.top - 10, left: tooltip.rect.left + tooltip.rect.width / 2, transform: 'translate(-50%, -100%)' }}>
+                        <div className="bg-slate-800 text-white text-[10px] p-2 rounded shadow-xl whitespace-nowrap">
+                            <div className="font-bold border-b border-slate-600 pb-1 mb-1">Process P{tooltip.slice.processId}</div>
+                            <div>Start: {tooltip.slice.startTime}s | End: {tooltip.slice.endTime}s</div>
+                            {tooltip.slice.priority !== undefined && <div>Priority: Q{tooltip.slice.priority}</div>}
+                            {tooltip.slice.tickets !== undefined && <div>Tickets: {tooltip.slice.tickets}</div>}
+                        </div>
+                        <div className="w-2 h-2 bg-slate-800 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
+                    </div>
+                 )}
+
+                 {/* Stats */}
+                 <div className="mt-auto pt-6 grid grid-cols-2 gap-4">
+                     <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-700'}`}>
+                        <div className="text-[10px] uppercase font-bold opacity-60">Avg Turnaround</div>
+                        <div className="text-2xl font-mono font-bold">{avgTurnaround}s</div>
+                     </div>
+                     <div className={`p-4 rounded-xl ${mode === 'cute' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                        <div className="text-[10px] uppercase font-bold opacity-60">Avg Waiting</div>
+                        <div className="text-2xl font-mono font-bold">{avgWaiting}s</div>
+                     </div>
                  </div>
              </div>
           </div>
@@ -400,12 +781,11 @@ const SchedulerView = () => {
 
 export const ProcessView: React.FC = () => {
   const { styles, mode } = useTheme();
-  const [tab, setTab] = useState<'lifecycle' | 'scheduler'>('lifecycle');
+  const [tab, setTab] = useState<'lifecycle' | 'scheduler' | 'pcb'>('lifecycle');
 
   return (
-    <div className={`flex flex-col h-full p-6 gap-6 ${styles.bg}`}>
-       {/* Tabs */}
-       <div className="flex justify-center">
+    <div className={`flex flex-col h-full p-6 gap-6 overflow-y-auto ${styles.bg}`}>
+       <div className="flex justify-center shrink-0">
          <div className={`p-1 rounded-xl flex gap-1 border ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-200 border-slate-300'}`}>
            <button 
              onClick={() => setTab('lifecycle')}
@@ -415,7 +795,7 @@ export const ProcessView: React.FC = () => {
                  : 'text-slate-400 hover:text-slate-600'
              }`}
            >
-             <GitCommit size={16} className="inline mr-2"/> 状态模型 (Lifecycle)
+             <GitCommit size={16} className="inline mr-2"/> 状态模型
            </button>
            <button 
              onClick={() => setTab('scheduler')}
@@ -425,12 +805,22 @@ export const ProcessView: React.FC = () => {
                  : 'text-slate-400 hover:text-slate-600'
              }`}
            >
-             <LayoutTemplate size={16} className="inline mr-2"/> 调度算法 (Scheduler)
+             <LayoutTemplate size={16} className="inline mr-2"/> 调度算法
+           </button>
+           <button 
+             onClick={() => setTab('pcb')}
+             className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${
+               tab === 'pcb' 
+                 ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') 
+                 : 'text-slate-400 hover:text-slate-600'
+             }`}
+           >
+             <ScanFace size={16} className="inline mr-2"/> PCB 结构
            </button>
          </div>
        </div>
 
-       {tab === 'lifecycle' ? <LifecycleView /> : <SchedulerView />}
+       {tab === 'lifecycle' ? <LifecycleView /> : tab === 'scheduler' ? <SchedulerView /> : <PCBStructureView />}
     </div>
   );
 };
