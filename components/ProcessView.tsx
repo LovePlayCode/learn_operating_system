@@ -287,7 +287,7 @@ const ProgramToProcessView = () => {
                       <PlayCircle size={24} className="animate-pulse"/>
                       <div>
                          <div className="text-xs font-bold opacity-80 uppercase">CPU 执行</div>
-                         <div className="font-mono font-bold">PC -> 0x0804800 (main)</div>
+                         <div className="font-mono font-bold">PC → 0x0804800 (main)</div>
                       </div>
                    </div>
                 </div>
