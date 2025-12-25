@@ -1,13 +1,15 @@
 
 import React from 'react';
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity } from 'lucide-react';
+import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity, GitMerge, HardDrive } from 'lucide-react';
 import { SegmentationView } from './components/SegmentationView';
 import { PagingView } from './components/PagingView';
 import { MultiLevelPagingView } from './components/MultiLevelPagingView';
 import { InvertedPagingView } from './components/InvertedPagingView';
 import { SegmentedPagingView } from './components/SegmentedPagingView';
 import { ProcessView } from './components/ProcessView';
+import { ConcurrencyView } from './components/ConcurrencyView';
+import { FileView } from './components/FileView';
 import { AITutor } from './components/AITutor';
 import { MemoryMode } from './types';
 import { ThemeProvider, useTheme } from './hooks/useTheme';
@@ -57,7 +59,7 @@ const Header = ({ title, subtitle }: { title: string, subtitle: string }) => {
         
         <div className={`flex items-center gap-2 text-sm ${styles.text.secondary}`}>
           <Cpu size={16} />
-          <span className="font-mono">OS Kernel v2.1</span>
+          <span className="font-mono">OS Kernel v2.2</span>
         </div>
       </div>
     </header>
@@ -98,6 +100,16 @@ const ContentWrapper = () => {
     title = "进程管理";
     subtitle = "Process Scheduling & States";
     contextDesc = "用户正在查看进程管理模拟。包含进程状态流转（生命周期）和调度算法（FIFO/RR/MLFQ）。";
+  } else if (location.pathname === '/concurrency') {
+    currentMode = MemoryMode.CONCURRENCY;
+    title = "并发与同步";
+    subtitle = "Concurrency & Synchronization";
+    contextDesc = "用户正在查看并发模拟。演示了竞态条件、互斥锁、信号量（生产者消费者）以及死锁（哲学家就餐）。";
+  } else if (location.pathname === '/file-system') {
+    currentMode = MemoryMode.FILE_SYSTEM;
+    title = "文件系统管理";
+    subtitle = "Files & Disk Allocation";
+    contextDesc = "用户正在查看文件系统模拟。包含 Inode 结构和磁盘块分配策略（连续、链接、索引）。";
   }
 
   return (
@@ -113,7 +125,7 @@ const ContentWrapper = () => {
             </div>
             <div>
               <h1 className="font-bold text-lg tracking-tight">OS Explorer</h1>
-              <div className={`text-xs font-medium ${mode === 'modern' ? 'text-slate-400' : 'text-pink-400'}`}>Memory Labs</div>
+              <div className={`text-xs font-medium ${mode === 'modern' ? 'text-slate-400' : 'text-pink-400'}`}>OS Labs</div>
             </div>
           </div>
         </div>
@@ -129,9 +141,11 @@ const ContentWrapper = () => {
           <NavItem to="/segmented-paging" icon={LayoutList} label="段页式存储" />
 
           <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-8 ${styles.text.secondary}`}>
-            Process Management
+            Scheduling & Files
           </div>
           <NavItem to="/process" icon={Activity} label="进程调度 & 状态" />
+          <NavItem to="/concurrency" icon={GitMerge} label="并发与同步 (Sync)" />
+          <NavItem to="/file-system" icon={HardDrive} label="文件系统 (Files)" />
           
           <div className={`mt-8 mx-4 p-4 rounded-xl border ${
             mode === 'modern' 
@@ -143,7 +157,7 @@ const ContentWrapper = () => {
               <div>
                 <h4 className={`text-sm font-semibold mb-1 ${mode === 'modern' ? 'text-slate-200' : 'text-slate-700'}`}>学习提示</h4>
                 <p className={`text-xs leading-relaxed ${mode === 'modern' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  点击左上角切换按钮可以更换 UI 风格！尝试修改参数观察地址变换。
+                  连续分配会导致严重的“外部碎片”，尝试在磁盘中找到一个大的连续空间。
                 </p>
               </div>
             </div>
@@ -163,6 +177,8 @@ const ContentWrapper = () => {
              <Route path="/inverted" element={<InvertedPagingView />} />
              <Route path="/segmented-paging" element={<SegmentedPagingView />} />
              <Route path="/process" element={<ProcessView />} />
+             <Route path="/concurrency" element={<ConcurrencyView />} />
+             <Route path="/file-system" element={<FileView />} />
            </Routes>
         </div>
 

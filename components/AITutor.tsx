@@ -17,14 +17,21 @@ const SUGGESTED_QUESTIONS = {
   [MemoryMode.MULTI_LEVEL]: ["为什么需要多级页表？", "多级页表如何节省空间？", "TLB 是什么？"],
   [MemoryMode.INVERTED]: ["反转页表如何解决大地址空间问题？", "哈希冲突怎么处理？", "为什么反转页表不能共享页面？"],
   [MemoryMode.SEGMENTED_PAGING]: ["段页式相比纯页式有什么优势？", "地址转换为什么需要三次访存？", "段表项和页表项有什么区别？"],
-  [MemoryMode.PROCESS]: ["什么是进程上下文切换？", "FIFO, RR, MLFQ 哪个算法更好？", "就绪和阻塞状态有什么区别？"]
+  [MemoryMode.PROCESS]: ["什么是进程上下文切换？", "FIFO, RR, MLFQ 哪个算法更好？", "就绪和阻塞状态有什么区别？"],
+  [MemoryMode.CONCURRENCY]: ["什么是死锁？如何预防？", "Mutex 和 Semaphore 的区别是什么？", "什么是临界区 (Critical Section)？"],
+  [MemoryMode.FILE_SYSTEM]: [
+    "软链接和硬链接的底层区别是什么？", 
+    "为什么删除文件后磁盘空间没有立即释放？", 
+    "RAID 5 是如何通过校验位恢复数据的？",
+    "日志系统如何保证崩溃后的一致性？"
+  ]
 };
 
 export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescription }) => {
   const { styles, mode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: '你好！我是你的内存管理 AI 助教。关于当前的内存模型，你有什么想问的吗？', timestamp: Date.now() }
+    { role: 'model', text: '你好！我是你的内存、进程、并发与文件系统 AI 助教。关于当前的模拟实验，你有什么疑问吗？', timestamp: Date.now() }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +67,6 @@ export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescriptio
 
   return (
     <>
-      {/* Floating Button */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-8 right-8 p-4 shadow-2xl hover:scale-110 transition-all z-50 flex items-center gap-2 group ring-4 ${
@@ -73,32 +79,26 @@ export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescriptio
         {!isOpen && <span className="font-bold pr-2">AI 提问</span>}
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
         <div className={`fixed bottom-28 right-8 w-[400px] h-[600px] bg-white shadow-2xl border z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-300 ${
           mode === 'cute' ? 'rounded-[2rem] border-pink-200' : 'rounded-2xl border-slate-200'
         }`}>
-          
-          {/* Header */}
           <div className={`p-4 flex justify-between items-center shrink-0 ${mode === 'cute' ? 'bg-pink-400' : 'bg-slate-900'}`}>
              <div className="flex items-center gap-3">
                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${mode === 'cute' ? 'bg-white text-pink-500' : 'bg-blue-600 text-white'}`}>
                  <Bot size={20} />
                </div>
                <div>
-                 <h3 className="font-bold text-white text-sm">学习助手</h3>
+                 <h3 className="font-bold text-white text-sm">OS 学习助手</h3>
                  <div className="text-[10px] text-white/70 flex items-center gap-1">
                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
                    Online
                  </div>
                </div>
              </div>
-             <button onClick={() => setMessages([])} className="text-xs text-white/60 hover:text-white underline">
-               清空
-             </button>
+             <button onClick={() => setMessages([])} className="text-xs text-white/60 hover:text-white underline">清空</button>
           </div>
 
-          {/* Messages */}
           <div className={`flex-1 overflow-y-auto p-4 space-y-6 ${mode === 'cute' ? 'bg-pink-50/50' : 'bg-slate-50'}`}>
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -134,7 +134,6 @@ export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescriptio
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Suggested Questions */}
           {!isLoading && (
              <div className={`px-4 pb-2 pt-2 overflow-x-auto flex gap-2 no-scrollbar ${mode === 'cute' ? 'bg-pink-50/50' : 'bg-slate-50'}`}>
                {(SUGGESTED_QUESTIONS[currentMode] || []).map((q, i) => (
@@ -153,7 +152,6 @@ export const AITutor: React.FC<AITutorProps> = ({ currentMode, contextDescriptio
              </div>
           )}
 
-          {/* Input Area */}
           <div className="p-4 bg-white border-t border-slate-100">
              <div className="relative flex items-center gap-2">
                <input

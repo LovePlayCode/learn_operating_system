@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { MemoryMode } from '../types';
 
@@ -24,21 +25,25 @@ export const askAITutor = async (
   }
 
   const systemPrompt = `
-    你是一位精通操作系统原理的计算机科学教授，专门负责讲解内存管理（Memory Management）。
-    当前学生正在学习：${context === MemoryMode.SEGMENTATION ? '段式存储 (Segmentation)' : context === MemoryMode.PAGING ? '页式存储 (Paging)' : '多级页表 (Multi-level Paging)'}。
+    你是一位精通操作系统原理的计算机科学教授。
+    当前学生正在学习：${context === MemoryMode.SEGMENTATION ? '段式存储' : context === MemoryMode.PAGING ? '页式存储' : context === MemoryMode.FILE_SYSTEM ? '文件系统管理（Inode, 软硬链接, FD, RAID, 日志恢复）' : '操作系统通用概念'}。
     
     当前的模拟器状态如下：
     ${currentStateDescription}
 
-    请用简洁、生动、易懂的中文回答学生的问题。如果涉及计算，请逐步解释。
-    鼓励学生通过调整模拟器的参数来观察变化。
-    回答长度控制在300字以内，除非需要详细解释概念。
+    请用简洁、生动、易懂的中文回答学生的问题。
+    如果涉及文件描述符，请强调它是三级表的映射过程。
+    如果涉及链接，请解释 Inode 编号的作用。
+    如果涉及 RAID，请对比性能与冗余。
+    如果涉及日志系统，请通过“事务”的概念解释原子性。
+
+    鼓励学生通过操作模拟器观察变化。回答长度控制在300字以内。
     使用Markdown格式。
   `;
 
   try {
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: question,
       config: {
         systemInstruction: systemPrompt,
