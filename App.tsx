@@ -1,12 +1,8 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity, GitMerge, HardDrive } from 'lucide-react';
-import { SegmentationView } from './components/SegmentationView';
-import { PagingView } from './components/PagingView';
-import { MultiLevelPagingView } from './components/MultiLevelPagingView';
-import { InvertedPagingView } from './components/InvertedPagingView';
-import { SegmentedPagingView } from './components/SegmentedPagingView';
+import { HashRouter as Router, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
+import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity, GitMerge, HardDrive, Box } from 'lucide-react';
+import { MemoryVirtualizationView } from './components/MemoryVirtualizationView';
 import { ProcessView } from './components/ProcessView';
 import { ConcurrencyView } from './components/ConcurrencyView';
 import { FileView } from './components/FileView';
@@ -14,14 +10,14 @@ import { AITutor } from './components/AITutor';
 import { MemoryMode } from './types';
 import { ThemeProvider, useTheme } from './hooks/useTheme';
 
-const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+const NavItem = ({ to, icon: Icon, label, isActiveCheck }: { to: string, icon: any, label: string, isActiveCheck?: boolean }) => {
   const { styles } = useTheme();
   return (
     <NavLink 
       to={to} 
       className={({ isActive }) => 
         `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm mb-1 ${
-          isActive 
+          (isActiveCheck || isActive) 
             ? styles.sidebarItem.active
             : styles.sidebarItem.inactive
         }`
@@ -70,31 +66,37 @@ const ContentWrapper = () => {
   const location = useLocation();
   const { styles, mode } = useTheme();
 
+  // Determine state based on path
   let currentMode = MemoryMode.SEGMENTATION;
-  let title = "段式存储管理";
-  let subtitle = "Segmentation Logic";
-  let contextDesc = "用户正在查看段式存储模拟。包含段表、基址、界限寄存器逻辑。";
+  let title = "内存虚拟化";
+  let subtitle = "Memory Virtualization";
+  let contextDesc = "用户正在查看内存虚拟化模块。";
   
-  if (location.pathname === '/paging') {
+  if (location.pathname.includes('/memory/paging')) {
     currentMode = MemoryMode.PAGING;
     title = "页式存储管理";
     subtitle = "Paging Mechanism";
     contextDesc = "用户正在查看页式存储模拟。包含页表、VPN到PFN转换。";
-  } else if (location.pathname === '/multi-level') {
+  } else if (location.pathname.includes('/memory/multi-level')) {
     currentMode = MemoryMode.MULTI_LEVEL;
     title = "多级页表";
     subtitle = "Multi-Level Page Tables";
     contextDesc = "用户正在查看多级页表模拟。演示了页目录和二级页表结构。";
-  } else if (location.pathname === '/inverted') {
+  } else if (location.pathname.includes('/memory/inverted')) {
     currentMode = MemoryMode.INVERTED;
     title = "反转页表";
     subtitle = "Inverted Page Table (Hash)";
     contextDesc = "用户正在查看反转页表模拟。演示了基于哈希的全局页表和冲突链查找。";
-  } else if (location.pathname === '/segmented-paging') {
+  } else if (location.pathname.includes('/memory/segmented-paging')) {
     currentMode = MemoryMode.SEGMENTED_PAGING;
     title = "段页式存储";
     subtitle = "Segmented Paging";
     contextDesc = "用户正在查看段页式存储模拟。演示了先分段再分页的二级查找过程。";
+  } else if (location.pathname.includes('/memory/segmentation')) {
+    currentMode = MemoryMode.SEGMENTATION;
+    title = "段式存储管理";
+    subtitle = "Segmentation Logic";
+    contextDesc = "用户正在查看段式存储模拟。包含段表、基址、界限寄存器逻辑。";
   } else if (location.pathname === '/process') {
     currentMode = MemoryMode.PROCESS;
     title = "进程管理";
@@ -111,6 +113,8 @@ const ContentWrapper = () => {
     subtitle = "Files & Disk Allocation";
     contextDesc = "用户正在查看文件系统模拟。包含 Inode 结构和磁盘块分配策略（连续、链接、索引）。";
   }
+
+  const isMemoryActive = location.pathname.startsWith('/memory');
 
   return (
     <div className={`flex h-screen ${styles.font} ${styles.bg}`}>
@@ -132,18 +136,17 @@ const ContentWrapper = () => {
 
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-4 ${styles.text.secondary}`}>
-            Memory Management
+            Core Modules
           </div>
-          <NavItem to="/" icon={Layers} label="段式存储" />
-          <NavItem to="/paging" icon={FileDigit} label="页式存储" />
-          <NavItem to="/multi-level" icon={LayoutDashboard} label="多级页表" />
-          <NavItem to="/inverted" icon={Fingerprint} label="反转页表" />
-          <NavItem to="/segmented-paging" icon={LayoutList} label="段页式存储" />
-
-          <div className={`text-xs font-bold px-4 mb-3 uppercase tracking-wider mt-8 ${styles.text.secondary}`}>
-            Scheduling & Files
-          </div>
-          <NavItem to="/process" icon={Activity} label="进程调度 & 状态" />
+          
+          <NavItem 
+            to="/memory/segmentation" 
+            isActiveCheck={isMemoryActive}
+            icon={Box} 
+            label="内存虚拟化 (Memory)" 
+          />
+          
+          <NavItem to="/process" icon={Activity} label="进程调度 (Process)" />
           <NavItem to="/concurrency" icon={GitMerge} label="并发与同步 (Sync)" />
           <NavItem to="/file-system" icon={HardDrive} label="文件系统 (Files)" />
           
@@ -157,7 +160,7 @@ const ContentWrapper = () => {
               <div>
                 <h4 className={`text-sm font-semibold mb-1 ${mode === 'modern' ? 'text-slate-200' : 'text-slate-700'}`}>学习提示</h4>
                 <p className={`text-xs leading-relaxed ${mode === 'modern' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  连续分配会导致严重的“外部碎片”，尝试在磁盘中找到一个大的连续空间。
+                  内存虚拟化允许每个进程拥有独立的地址空间。尝试切换不同模式比较页表和段表的区别。
                 </p>
               </div>
             </div>
@@ -171,11 +174,8 @@ const ContentWrapper = () => {
 
         <div className="flex-1 overflow-hidden relative">
            <Routes>
-             <Route path="/" element={<SegmentationView />} />
-             <Route path="/paging" element={<PagingView />} />
-             <Route path="/multi-level" element={<MultiLevelPagingView />} />
-             <Route path="/inverted" element={<InvertedPagingView />} />
-             <Route path="/segmented-paging" element={<SegmentedPagingView />} />
+             <Route path="/" element={<Navigate to="/memory/segmentation" replace />} />
+             <Route path="/memory/*" element={<MemoryVirtualizationView />} />
              <Route path="/process" element={<ProcessView />} />
              <Route path="/concurrency" element={<ConcurrencyView />} />
              <Route path="/file-system" element={<FileView />} />

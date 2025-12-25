@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { Play, Pause, RotateCcw, Plus, Clock, Activity, ListOrdered, GitCommit, ArrowRight, LayoutTemplate, Ticket, Info, FileDigit, Cpu, Hash, HardDrive, ScanFace, Box, Layers, FolderOpen, BookOpen, ChevronRight } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Clock, Activity, ListOrdered, GitCommit, ArrowRight, LayoutTemplate, Ticket, Info, FileDigit, Cpu, Hash, HardDrive, ScanFace, Box, Layers, FolderOpen, BookOpen, ChevronRight, FileCode, PlayCircle, Zap } from 'lucide-react';
 import { Process, ProcessState, AlgorithmType, TimeSlice } from '../types';
 
 const ALGO_DESCRIPTIONS: Record<AlgorithmType, string> = {
@@ -110,7 +110,206 @@ const ProcessBox = ({ p, compact = false }: { p: Process, compact?: boolean }) =
   );
 };
 
-// --- New PCB Visualizer (Diagram Mode) ---
+// --- New: Program to Process Visualization ---
+const ProgramToProcessView = () => {
+  const { styles, mode } = useTheme();
+  const [step, setStep] = useState(0);
+
+  const steps = [
+    {
+      title: "1. 存储阶段 (Program on Disk)",
+      desc: "程序只是躺在硬盘上的一个二进制文件（如 .exe 或 ELF）。它包含代码指令（Text）和初始化数据（Data），此时它是“死”的，不占用内存。",
+      activeParts: ['disk']
+    },
+    {
+      title: "2. 加载与映射 (Loading)",
+      desc: "操作系统读取文件头，申请虚拟内存空间。加载器（Loader）将磁盘上的代码段和数据段复制（或映射）到内存中。",
+      activeParts: ['disk', 'loader', 'mem-static']
+    },
+    {
+      title: "3. 内存分配 (Allocation)",
+      desc: "OS 为进程分配“栈 (Stack)”用于函数调用和局部变量，分配“堆 (Heap)”用于动态内存。BSS 段被初始化为 0。",
+      activeParts: ['disk', 'loader', 'mem-static', 'mem-dynamic']
+    },
+    {
+      title: "4. PCB 创建 (Context Setup)",
+      desc: "内核创建 task_struct (PCB)，分配 PID，初始化文件表和页表。程序正式变为“进程”，进入就绪状态。",
+      activeParts: ['disk', 'loader', 'mem-static', 'mem-dynamic', 'pcb']
+    },
+    {
+      title: "5. 开始执行 (Execution)",
+      desc: "CPU 的 PC 寄存器指向程序的入口点（如 _start 或 main）。进程开始在 CPU 上“活”了起来。",
+      activeParts: ['disk', 'loader', 'mem-static', 'mem-dynamic', 'pcb', 'cpu']
+    }
+  ];
+
+  const isActive = (part: string) => steps[step].activeParts.includes(part);
+
+  return (
+    <div className="flex flex-col h-full gap-6">
+       {/* Controller */}
+       <div className={`${styles.card} p-6 shrink-0 flex items-center justify-between`}>
+          <div>
+            <h3 className={`font-bold text-lg ${styles.text.primary}`}>从程序到进程 (From Program to Process)</h3>
+            <p className={`text-sm ${styles.text.secondary}`}>
+               Step {step + 1}/{steps.length}: {steps[step].title}
+            </p>
+          </div>
+          <div className="flex gap-2">
+             <button onClick={() => setStep(0)} className={styles.button.icon + " p-3"}>
+               <RotateCcw size={18}/>
+             </button>
+             <button 
+               onClick={() => setStep(s => Math.min(s + 1, steps.length - 1))} 
+               disabled={step === steps.length - 1}
+               className={`${styles.button.primary} px-6 py-2 flex items-center gap-2 disabled:opacity-50`}
+             >
+               下一步 <ArrowRight size={18}/>
+             </button>
+          </div>
+       </div>
+
+       {/* Main Stage */}
+       <div className="flex-1 flex gap-8 items-stretch min-h-[500px]">
+          
+          {/* 1. DISK (Left) */}
+          <div className={`w-1/4 flex flex-col items-center justify-center transition-opacity duration-500 ${step > 0 ? 'opacity-60 grayscale' : 'opacity-100'}`}>
+             <div className={`w-48 h-64 rounded-xl border-4 flex flex-col items-center justify-center relative shadow-xl ${mode === 'cute' ? 'bg-slate-700 border-slate-600' : 'bg-slate-800 border-slate-700'}`}>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-4 bg-slate-200 text-slate-800 px-3 py-1 rounded-full text-xs font-bold border border-slate-300">Hard Disk</div>
+                <HardDrive size={48} className="text-slate-500 mb-4"/>
+                
+                {/* File on Disk */}
+                <div className={`w-32 bg-white rounded-lg p-2 shadow-lg flex flex-col gap-1 transition-transform ${isActive('loader') ? 'translate-x-20 opacity-0 duration-1000' : ''}`}>
+                   <div className="flex items-center gap-2 border-b pb-1 mb-1">
+                     <FileCode size={16} className="text-blue-500"/>
+                     <span className="text-xs font-bold text-slate-700">game.exe</span>
+                   </div>
+                   <div className="h-6 bg-emerald-100 rounded border border-emerald-200 text-[8px] flex items-center justify-center text-emerald-700">.text (Code)</div>
+                   <div className="h-4 bg-blue-100 rounded border border-blue-200 text-[8px] flex items-center justify-center text-blue-700">.data (Init)</div>
+                   <div className="h-4 bg-slate-100 rounded border border-slate-200 text-[8px] flex items-center justify-center text-slate-400">Headers</div>
+                </div>
+                <div className="text-xs text-slate-400 mt-4 text-center px-4">Passive Entity<br/>(静态实体)</div>
+             </div>
+          </div>
+
+          {/* Arrow / Loader */}
+          <div className="flex flex-col justify-center items-center w-24 relative">
+             {isActive('loader') && (
+               <>
+                 <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -z-10"></div>
+                 <div className="bg-white p-3 rounded-full shadow-lg border animate-bounce z-10">
+                    <ArrowRight size={24} className={mode === 'cute' ? 'text-pink-400' : 'text-blue-600'}/>
+                 </div>
+                 <div className="mt-2 text-[10px] font-bold uppercase text-slate-400 bg-white px-2 py-0.5 rounded border">OS Loader</div>
+               </>
+             )}
+          </div>
+
+          {/* 2. RAM (Right) */}
+          <div className="flex-1 flex flex-col items-center justify-center">
+             <div className={`w-full max-w-md h-[450px] rounded-[2rem] border-4 relative flex flex-col items-center pt-10 shadow-2xl transition-all ${mode === 'cute' ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-300'}`}>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-4 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center gap-2">
+                   <Zap size={14} fill="currentColor"/> RAM (Memory)
+                </div>
+
+                {/* Process Address Space */}
+                {isActive('mem-static') ? (
+                  <div className="w-64 flex-1 flex flex-col gap-1 mb-8 animate-in zoom-in duration-500">
+                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0xFFFFFFFF</span><span>High Addr</span></div>
+                     
+                     {/* Kernel Space */}
+                     <div className="h-12 bg-slate-200 rounded-t-lg border-2 border-slate-300 border-dashed flex items-center justify-center text-xs text-slate-400 font-mono">
+                        Kernel Space
+                     </div>
+
+                     {/* Stack */}
+                     <div className={`transition-all duration-700 h-24 rounded border-2 flex flex-col items-center justify-center text-xs font-bold relative ${isActive('mem-dynamic') ? (mode === 'cute' ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-indigo-100 border-indigo-300 text-indigo-700') : 'opacity-0'}`}>
+                        Stack (栈)
+                        <span className="text-[9px] font-normal opacity-70">Local Vars / Return Addr</span>
+                        <div className="absolute bottom-1 right-2 text-[8px] opacity-50">⬇ Grows Down</div>
+                     </div>
+
+                     {/* Empty / Heap Gap */}
+                     <div className="flex-1 flex items-center justify-center">
+                        {isActive('mem-dynamic') && <div className="text-slate-300 text-lg">...</div>}
+                     </div>
+
+                     {/* Heap */}
+                     <div className={`transition-all duration-700 h-16 rounded border-2 flex flex-col items-center justify-center text-xs font-bold relative ${isActive('mem-dynamic') ? (mode === 'cute' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-amber-100 border-amber-300 text-amber-700') : 'opacity-0'}`}>
+                        Heap (堆)
+                        <span className="text-[9px] font-normal opacity-70">malloc / new</span>
+                        <div className="absolute top-1 right-2 text-[8px] opacity-50">⬆ Grows Up</div>
+                     </div>
+
+                     {/* Data */}
+                     <div className={`h-10 rounded border-2 flex items-center justify-center text-xs font-bold ${mode === 'cute' ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-sky-100 border-sky-300 text-sky-700'}`}>
+                        .data / .bss
+                     </div>
+
+                     {/* Text */}
+                     <div className={`h-16 rounded-b-lg border-2 flex flex-col items-center justify-center text-xs font-bold ${mode === 'cute' ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-green-100 border-green-300 text-green-700'}`}>
+                        .text (Code Segment)
+                        <span className="text-[9px] font-normal opacity-70">Binary Instructions</span>
+                     </div>
+
+                     <div className="flex justify-between text-[10px] text-slate-400 px-1"><span>0x00000000</span><span>Low Addr</span></div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
+                     <Box size={48} className="mb-2 opacity-50"/>
+                     <span className="text-sm">Empty Space</span>
+                  </div>
+                )}
+                
+                {/* PCB Badge */}
+                {isActive('pcb') && (
+                  <div className="absolute -right-16 top-20 animate-in slide-in-from-left-4 duration-500">
+                     <div className={`w-32 bg-white p-3 rounded-xl border-2 shadow-lg ${mode === 'cute' ? 'border-pink-300' : 'border-slate-600'}`}>
+                        <div className="text-[10px] font-bold uppercase mb-1 flex items-center gap-1">
+                           <ScanFace size={12}/> Task_Struct
+                        </div>
+                        <div className="space-y-1 text-[9px] font-mono text-slate-600">
+                           <div className="flex justify-between"><span>PID:</span> <b>101</b></div>
+                           <div className="flex justify-between"><span>State:</span> <b className="text-green-500">READY</b></div>
+                           <div className="flex justify-between"><span>PC:</span> <b>0x0804800</b></div>
+                        </div>
+                     </div>
+                     {/* Connector Line */}
+                     <div className="absolute top-6 -left-4 w-4 h-0.5 bg-slate-400"></div>
+                  </div>
+                )}
+             </div>
+
+             {isActive('cpu') && (
+                <div className="mt-6 flex items-center gap-4 animate-in slide-in-from-bottom-4">
+                   <div className="h-12 w-0.5 bg-slate-300"></div>
+                   <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg text-white ${mode === 'cute' ? 'bg-gradient-to-r from-pink-400 to-orange-400' : 'bg-slate-800'}`}>
+                      <PlayCircle size={24} className="animate-pulse"/>
+                      <div>
+                         <div className="text-xs font-bold opacity-80 uppercase">CPU Execute</div>
+                         <div className="font-mono font-bold">PC -> 0x0804800 (main)</div>
+                      </div>
+                   </div>
+                </div>
+             )}
+          </div>
+       </div>
+
+       {/* Explainer Footer */}
+       <div className={`p-4 rounded-xl border ${mode === 'cute' ? 'bg-white border-pink-100 text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+          <h4 className="font-bold text-sm mb-1 flex items-center gap-2">
+             <BookOpen size={16} className={mode === 'cute' ? 'text-pink-400' : 'text-blue-500'}/>
+             原理说明
+          </h4>
+          <p className="text-xs leading-relaxed opacity-80">
+             {steps[step].desc}
+          </p>
+       </div>
+    </div>
+  );
+};
+
+// --- PCB Visualizer (Diagram Mode) ---
 const PCBStructureView = () => {
   const { styles, mode } = useTheme();
   const [selectedId, setSelectedId] = useState<number>(1);
@@ -781,12 +980,22 @@ const SchedulerView = () => {
 
 export const ProcessView: React.FC = () => {
   const { styles, mode } = useTheme();
-  const [tab, setTab] = useState<'lifecycle' | 'scheduler' | 'pcb'>('lifecycle');
+  const [tab, setTab] = useState<'lifecycle' | 'scheduler' | 'pcb' | 'creation'>('creation');
 
   return (
     <div className={`flex flex-col h-full p-6 gap-6 overflow-y-auto ${styles.bg}`}>
        <div className="flex justify-center shrink-0">
          <div className={`p-1 rounded-xl flex gap-1 border ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-200 border-slate-300'}`}>
+           <button 
+             onClick={() => setTab('creation')}
+             className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${
+               tab === 'creation' 
+                 ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') 
+                 : 'text-slate-400 hover:text-slate-600'
+             }`}
+           >
+             <Zap size={16} className="inline mr-2"/> 创建过程
+           </button>
            <button 
              onClick={() => setTab('lifecycle')}
              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${
@@ -820,7 +1029,7 @@ export const ProcessView: React.FC = () => {
          </div>
        </div>
 
-       {tab === 'lifecycle' ? <LifecycleView /> : tab === 'scheduler' ? <SchedulerView /> : <PCBStructureView />}
+       {tab === 'lifecycle' ? <LifecycleView /> : tab === 'scheduler' ? <SchedulerView /> : tab === 'pcb' ? <PCBStructureView /> : <ProgramToProcessView />}
     </div>
   );
 };
