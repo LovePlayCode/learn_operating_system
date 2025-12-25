@@ -2,12 +2,14 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
-import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList } from 'lucide-react';
+import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList, RefreshCcw, Copy } from 'lucide-react';
 import { SegmentationView } from './SegmentationView';
 import { PagingView } from './PagingView';
 import { MultiLevelPagingView } from './MultiLevelPagingView';
 import { InvertedPagingView } from './InvertedPagingView';
 import { SegmentedPagingView } from './SegmentedPagingView';
+import { SwappingView } from './SwappingView';
+import { CowView } from './CowView';
 
 export const MemoryVirtualizationView: React.FC = () => {
   const { styles, mode } = useTheme();
@@ -21,6 +23,8 @@ export const MemoryVirtualizationView: React.FC = () => {
     { id: 'segmentation', label: '段式存储', icon: Layers },
     { id: 'paging', label: '页式存储', icon: FileDigit },
     { id: 'multi-level', label: '多级页表', icon: LayoutDashboard },
+    { id: 'swapping', label: '换页与置换', icon: RefreshCcw }, // Moved up for visibility
+    { id: 'cow', label: '写时复制', icon: Copy }, // New
     { id: 'inverted', label: '反转页表', icon: Fingerprint },
     { id: 'segmented-paging', label: '段页式存储', icon: LayoutList },
   ];
@@ -36,6 +40,8 @@ export const MemoryVirtualizationView: React.FC = () => {
       case 'multi-level': return <MultiLevelPagingView />;
       case 'inverted': return <InvertedPagingView />;
       case 'segmented-paging': return <SegmentedPagingView />;
+      case 'swapping': return <SwappingView />;
+      case 'cow': return <CowView />;
       default: return <SegmentationView />;
     }
   };

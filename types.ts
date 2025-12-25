@@ -5,6 +5,8 @@ export enum MemoryMode {
   MULTI_LEVEL = 'multi_level',
   INVERTED = 'inverted_paging',
   SEGMENTED_PAGING = 'segmented_paging',
+  SWAPPING = 'swapping', // New
+  COW = 'cow', // New
   PROCESS = 'process_management',
   CONCURRENCY = 'concurrency_sync',
   FILE_SYSTEM = 'file_system',
@@ -101,4 +103,13 @@ export interface OpenFileTableEntry {
   offset: number;
   mode: 'r' | 'w' | 'rw';
   refCount: number;
+}
+
+// --- New Types for Swapping ---
+export interface FrameState {
+  id: number;
+  pageId: number | null;
+  refBit: boolean; // For Clock Algorithm
+  timestamp: number; // For LRU
+  insertedAt: number; // For FIFO
 }

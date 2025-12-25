@@ -92,6 +92,16 @@ const ContentWrapper = () => {
     title = "段页式存储";
     subtitle = "Segmented Paging";
     contextDesc = "用户正在查看段页式存储模拟。演示了先分段再分页的二级查找过程。";
+  } else if (location.pathname.includes('/memory/swapping')) {
+    currentMode = MemoryMode.SWAPPING;
+    title = "交换与置换算法";
+    subtitle = "Swapping & Page Replacement";
+    contextDesc = "用户正在查看页面置换模拟。包含 FIFO, LRU, Clock 算法的动态演示以及缺页中断逻辑。";
+  } else if (location.pathname.includes('/memory/cow')) {
+    currentMode = MemoryMode.COW;
+    title = "写时复制";
+    subtitle = "Copy-on-Write (COW)";
+    contextDesc = "用户正在查看写时复制模拟。演示 fork() 后父子进程共享物理页，直到写入时才复制的过程。";
   } else if (location.pathname.includes('/memory/segmentation')) {
     currentMode = MemoryMode.SEGMENTATION;
     title = "段式存储管理";
