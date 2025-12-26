@@ -5,8 +5,9 @@ export enum MemoryMode {
   MULTI_LEVEL = 'multi_level',
   INVERTED = 'inverted_paging',
   SEGMENTED_PAGING = 'segmented_paging',
-  SWAPPING = 'swapping', // New
-  COW = 'cow', // New
+  SWAPPING = 'swapping', 
+  COW = 'cow', 
+  RELOCATION = 'dynamic_relocation', // New
   PROCESS = 'process_management',
   CONCURRENCY = 'concurrency_sync',
   FILE_SYSTEM = 'file_system',

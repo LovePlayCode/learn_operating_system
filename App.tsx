@@ -102,6 +102,11 @@ const ContentWrapper = () => {
     title = "写时复制";
     subtitle = "Copy-on-Write (COW)";
     contextDesc = "用户正在查看写时复制模拟。演示 fork() 后父子进程共享物理页，直到写入时才复制的过程。";
+  } else if (location.pathname.includes('/memory/relocation')) {
+    currentMode = MemoryMode.RELOCATION;
+    title = "动态重定位";
+    subtitle = "Base & Bound Registers";
+    contextDesc = "用户正在查看动态重定位（基址-界限）模拟。演示了 MMU 如何利用两个寄存器实现最基础的地址转换和保护。";
   } else if (location.pathname.includes('/memory/segmentation')) {
     currentMode = MemoryMode.SEGMENTATION;
     title = "段式存储管理";

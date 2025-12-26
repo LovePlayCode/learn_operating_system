@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
-import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList, RefreshCcw, Copy, Cpu } from 'lucide-react';
+import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList, RefreshCcw, Copy, Cpu, Move } from 'lucide-react';
 import { SegmentationView } from './SegmentationView';
 import { PagingView } from './PagingView';
 import { MultiLevelPagingView } from './MultiLevelPagingView';
@@ -10,6 +10,7 @@ import { InvertedPagingView } from './InvertedPagingView';
 import { SegmentedPagingView } from './SegmentedPagingView';
 import { SwappingView } from './SwappingView';
 import { CowView } from './CowView';
+import { DynamicRelocationView } from './DynamicRelocationView';
 import { MMUIntroduction } from './MMUIntroduction';
 
 export const MemoryVirtualizationView: React.FC = () => {
@@ -22,6 +23,7 @@ export const MemoryVirtualizationView: React.FC = () => {
   const currentPath = location.pathname.split('/').pop() || 'segmentation';
 
   const tabs = [
+    { id: 'relocation', label: '动态重定位', icon: Move },
     { id: 'segmentation', label: '段式存储', icon: Layers },
     { id: 'paging', label: '页式存储', icon: FileDigit },
     { id: 'multi-level', label: '多级页表', icon: LayoutDashboard },
@@ -37,6 +39,7 @@ export const MemoryVirtualizationView: React.FC = () => {
 
   const renderContent = () => {
     switch (currentPath) {
+      case 'relocation': return <DynamicRelocationView />;
       case 'segmentation': return <SegmentationView />;
       case 'paging': return <PagingView />;
       case 'multi-level': return <MultiLevelPagingView />;
