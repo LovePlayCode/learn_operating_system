@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
-import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList, RefreshCcw, Copy } from 'lucide-react';
+import { Layers, FileDigit, LayoutDashboard, Fingerprint, LayoutList, RefreshCcw, Copy, Cpu } from 'lucide-react';
 import { SegmentationView } from './SegmentationView';
 import { PagingView } from './PagingView';
 import { MultiLevelPagingView } from './MultiLevelPagingView';
@@ -10,11 +10,13 @@ import { InvertedPagingView } from './InvertedPagingView';
 import { SegmentedPagingView } from './SegmentedPagingView';
 import { SwappingView } from './SwappingView';
 import { CowView } from './CowView';
+import { MMUIntroduction } from './MMUIntroduction';
 
 export const MemoryVirtualizationView: React.FC = () => {
   const { styles, mode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showMMU, setShowMMU] = useState(false);
 
   // Determine active tab from URL
   const currentPath = location.pathname.split('/').pop() || 'segmentation';
@@ -23,8 +25,8 @@ export const MemoryVirtualizationView: React.FC = () => {
     { id: 'segmentation', label: '段式存储', icon: Layers },
     { id: 'paging', label: '页式存储', icon: FileDigit },
     { id: 'multi-level', label: '多级页表', icon: LayoutDashboard },
-    { id: 'swapping', label: '换页与置换', icon: RefreshCcw }, // Moved up for visibility
-    { id: 'cow', label: '写时复制', icon: Copy }, // New
+    { id: 'swapping', label: '换页与置换', icon: RefreshCcw }, 
+    { id: 'cow', label: '写时复制', icon: Copy }, 
     { id: 'inverted', label: '反转页表', icon: Fingerprint },
     { id: 'segmented-paging', label: '段页式存储', icon: LayoutList },
   ];
@@ -49,7 +51,7 @@ export const MemoryVirtualizationView: React.FC = () => {
   return (
     <div className={`flex flex-col h-full ${styles.bg}`}>
       {/* Internal Tab Navigation */}
-      <div className={`px-6 pt-4 pb-0 shrink-0`}>
+      <div className={`px-6 pt-4 pb-0 shrink-0 flex flex-wrap gap-4 items-center justify-between`}>
         <div className={`flex flex-wrap gap-2 p-1.5 rounded-xl border ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-200/50 border-slate-300'}`}>
           {tabs.map((tab) => {
             const isActive = currentPath === tab.id;
@@ -70,12 +72,28 @@ export const MemoryVirtualizationView: React.FC = () => {
             );
           })}
         </div>
+
+        {/* MMU Help Button */}
+        <button 
+          onClick={() => setShowMMU(true)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm border transition-all hover:scale-105 ${
+            mode === 'cute' 
+             ? 'bg-indigo-100 text-indigo-600 border-indigo-200 hover:bg-indigo-200' 
+             : 'bg-slate-800 text-white border-slate-700 hover:bg-slate-700'
+          }`}
+        >
+          <Cpu size={18}/>
+          <span>MMU 硬件原理</span>
+        </button>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {renderContent()}
       </div>
+
+      {/* Modals */}
+      {showMMU && <MMUIntroduction onClose={() => setShowMMU(false)} />}
     </div>
   );
 };
