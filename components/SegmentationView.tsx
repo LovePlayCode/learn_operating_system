@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Segment } from '../types';
-import { ArrowRight, GripVertical, Database, Cpu, Ban, CheckCircle, Info } from 'lucide-react';
+import { ArrowRight, GripVertical, Database, Cpu, Ban, CheckCircle, Info, BookOpen, Layers, Shield, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 const INITIAL_SEGMENTS: Segment[] = [
@@ -34,11 +35,11 @@ export const SegmentationView: React.FC = () => {
   return (
     <div className={`flex h-full p-6 gap-6 overflow-hidden ${styles.bg}`}>
       
-      {/* Left Column */}
-      <div className="w-1/3 flex flex-col gap-6 overflow-y-auto pr-1">
+      {/* Left Column: Controls & Knowledge */}
+      <div className="w-1/3 flex flex-col gap-6 overflow-y-auto pr-1 scrollbar-thin">
         
         {/* Input Panel */}
-        <div className={`${styles.card} p-5`}>
+        <div className={`${styles.card} p-5 shrink-0`}>
           <div className={`flex items-center gap-2 mb-4 pb-2 ${styles.cardHeader} rounded-t-xl -mx-5 -mt-5 px-5 pt-4`}>
              <div className={`p-1.5 rounded-lg ${mode === 'cute' ? 'bg-pink-100 text-pink-500' : 'bg-blue-100 text-blue-600'}`}><GripVertical size={18}/></div>
              <h3 className={`font-bold ${styles.text.primary}`}>1. 生成逻辑地址</h3>
@@ -98,15 +99,15 @@ export const SegmentationView: React.FC = () => {
         </div>
 
         {/* Segment Table */}
-        <div className={`${styles.card} p-5 flex-1 flex flex-col`}>
+        <div className={`${styles.card} p-5 shrink-0 flex flex-col`}>
            <div className="flex items-center justify-between mb-4">
              <h3 className={`font-bold flex items-center gap-2 ${styles.text.primary}`}>
                <div className={`p-1.5 rounded-lg ${mode === 'cute' ? 'bg-amber-100 text-amber-500' : 'bg-amber-100 text-amber-600'}`}><Database size={18}/></div>
-               2. 查段表
+               2. 查段表 (Segment Table)
              </h3>
            </div>
            
-           <div className={`overflow-hidden border ${mode === 'cute' ? 'rounded-2xl border-pink-100' : 'rounded-xl border-slate-200'} flex-1`}>
+           <div className={`overflow-hidden border ${mode === 'cute' ? 'rounded-2xl border-pink-100' : 'rounded-xl border-slate-200'}`}>
              <table className="w-full text-sm text-left">
                <thead className={`${mode === 'cute' ? 'bg-pink-50 text-pink-400' : 'bg-slate-50 text-slate-500'} text-xs uppercase`}>
                  <tr>
@@ -133,6 +134,46 @@ export const SegmentationView: React.FC = () => {
              </table>
            </div>
         </div>
+
+        {/* Knowledge Panel */}
+        <div className={`${styles.card} p-5 bg-opacity-50`}>
+           <div className="flex items-center gap-2 mb-4">
+              <BookOpen size={18} className={mode === 'cute' ? 'text-pink-500' : 'text-blue-600'}/>
+              <h3 className={`font-bold ${styles.text.primary}`}>段式存储核心概念</h3>
+           </div>
+           
+           <div className="space-y-4 text-xs leading-relaxed text-slate-600">
+              <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                 <h4 className="font-bold mb-1 flex items-center gap-1.5 text-slate-800">
+                    <Layers size={14} className="text-purple-500"/> 什么是“段”?
+                 </h4>
+                 <p>
+                    分段是将用户程序的逻辑地址空间划分为若干个<strong>逻辑单位</strong>（如代码段、数据段、堆栈段）。
+                    与分页不同，段的大小不固定，取决于程序自身的逻辑结构。这更符合程序员的视角。
+                 </p>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                 <h4 className="font-bold mb-1 flex items-center gap-1.5 text-slate-800">
+                    <Shield size={14} className="text-emerald-500"/> 保护与共享
+                 </h4>
+                 <p>
+                    每个段都可以独立设置权限（如代码段只读/可执行，数据段读写）。
+                    因为段是逻辑单位，两个进程可以通过指向同一个物理段来实现<strong>内存共享</strong>（例如共享动态链接库）。
+                 </p>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                 <h4 className="font-bold mb-1 flex items-center gap-1.5 text-slate-800">
+                    <AlertTriangle size={14} className="text-orange-500"/> 外部碎片问题
+                 </h4>
+                 <p>
+                    由于段长不固定，物理内存会被分割成不同大小的块。随着时间推移，会产生许多小的、无法利用的空闲区，称为<strong>外部碎片</strong>。需要通过“内存紧凑”技术来解决，但开销较大。
+                 </p>
+              </div>
+           </div>
+        </div>
+
       </div>
 
       {/* Middle: MMU Logic */}
