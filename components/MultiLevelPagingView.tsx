@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { ArrowRight, Spline, LayoutGrid, MapPin, Ban, Layers, ListTree, Grid3X3 } from 'lucide-react';
+import { ArrowRight, Spline, LayoutGrid, MapPin, Ban, Layers, ListTree, Grid3X3, ArrowDown, Binary, HelpCircle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 // 2-Level Constants
@@ -27,7 +28,7 @@ interface TableData {
 export const MultiLevelPagingView: React.FC = () => {
   const { styles, mode } = useTheme();
   const [levelMode, setLevelMode] = useState<2 | 3>(2);
-  const [addrInput, setAddrInput] = useState<string>("1A5");
+  const [addrInput, setAddrInput] = useState<string>("211");
 
   // Generate Data based on Mode
   const { l1Table, intermediateTables, leafTables } = useMemo(() => {
@@ -94,15 +95,18 @@ export const MultiLevelPagingView: React.FC = () => {
   
   let idx1 = 0, idx2 = 0, idx3 = 0, offset = 0;
   let maxAddr = 0;
+  let totalBits = 0;
 
   if (levelMode === 2) {
     // 10 bits: 3 | 3 | 4
+    totalBits = 10;
     maxAddr = 0x3FF;
     offset = parsed & 0xF;
     idx2 = (parsed >> 4) & 0x7;
     idx1 = (parsed >> 7) & 0x7;
   } else {
     // 12 bits: 2 | 3 | 3 | 4
+    totalBits = 12;
     maxAddr = 0xFFF;
     offset = parsed & 0xF;
     idx3 = (parsed >> 4) & 0x7;
@@ -165,7 +169,7 @@ export const MultiLevelPagingView: React.FC = () => {
         <div className={`${styles.card} p-4 flex items-center gap-6`}>
           <div className="text-right">
              <div className={`text-xs font-bold uppercase tracking-wide ${styles.text.secondary}`}>Virtual Address</div>
-             <div className="text-[10px] text-slate-400">Max 0x{maxAddr.toString(16).toUpperCase()} ({levelMode === 2 ? '10-bit' : '12-bit'})</div>
+             <div className="text-[10px] text-slate-400">Max 0x{maxAddr.toString(16).toUpperCase()} ({totalBits}-bit)</div>
           </div>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">0x</span>
@@ -184,6 +188,41 @@ export const MultiLevelPagingView: React.FC = () => {
             />
           </div>
         </div>
+        
+        {/* Hex to Binary Explanation */}
+        {isValid && (
+           <div className={`p-4 rounded-xl border w-full max-w-lg animate-in slide-in-from-top-2 ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-white border-slate-200'}`}>
+              <h4 className={`text-xs font-bold mb-3 flex items-center gap-2 ${styles.text.secondary}`}>
+                 <Binary size={14}/> 进制转换详解 (Hex to Binary)
+              </h4>
+              <div className="flex items-center justify-center gap-4">
+                 {/* Hex Digits */}
+                 <div className="flex gap-4">
+                    {addrInput.split('').map((char, i) => (
+                       <div key={i} className="flex flex-col items-center">
+                          <div className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold font-mono text-lg border ${mode === 'cute' ? 'bg-slate-50 border-pink-100 text-pink-500' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                             {char}
+                          </div>
+                          <ArrowDown size={14} className="text-slate-300 my-1"/>
+                          <div className="text-[10px] font-mono text-slate-500 bg-slate-50 px-1 rounded border border-slate-100">
+                             {parseInt(char, 16).toString(2).padStart(4, '0')}
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+                 <div className="text-slate-300">
+                    <ArrowRight size={20}/>
+                 </div>
+                 {/* Combined Binary */}
+                 <div className="flex flex-col items-center">
+                     <div className={`font-mono font-bold text-lg tracking-widest ${styles.text.primary}`}>
+                        {parsed.toString(2).padStart(totalBits, '0')}
+                     </div>
+                     <div className="text-[10px] text-slate-400 uppercase mt-1">Total {totalBits}-bit Address</div>
+                 </div>
+              </div>
+           </div>
+        )}
 
         {/* Bit Breakdown */}
         {isInputInRange && (
