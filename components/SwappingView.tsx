@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { FrameState } from '../types';
-import { RefreshCcw, Play, ArrowRight, Clock, History, AlertOctagon, CheckCircle, Database } from 'lucide-react';
+import { RefreshCcw, Play, ArrowRight, Clock, History, AlertOctagon, CheckCircle, Database, Lightbulb, ChevronRight } from 'lucide-react';
 
 type Algo = 'FIFO' | 'LRU' | 'CLOCK';
 
@@ -143,6 +143,85 @@ export const SwappingView: React.FC = () => {
     ? ((history.filter(h => h.result === 'HIT').length / history.length) * 100).toFixed(0) 
     : '0';
 
+  // --- Predictive Analysis Logic ---
+  const getNextStepAnalysis = () => {
+    if (currentIndex >= refString.length) return "模拟已完成。点击重置重新开始。";
+
+    const page = refString[currentIndex];
+    const existingIdx = frames.findIndex(f => f.pageId === page);
+
+    if (existingIdx !== -1) {
+       return (
+         <span>
+           请求页面 <strong className="font-black px-1">{page}</strong> 已在内存中 (页框 {existingIdx})。
+           <br/>
+           <span className="text-green-600 font-bold flex items-center gap-1 mt-1"><CheckCircle size={14}/> 判定：命中 (HIT)</span>
+           {algo === 'LRU' && <span className="text-xs text-slate-500 block mt-1">更新其时间戳为最新。</span>}
+           {algo === 'CLOCK' && <span className="text-xs text-slate-500 block mt-1">将其引用位 (R) 刷新为 <strong className="text-green-600">1</strong>。</span>}
+         </span>
+       );
+    }
+
+    // MISS
+    const emptyIdx = frames.findIndex(f => f.pageId === null);
+    if (emptyIdx !== -1) {
+       return (
+         <span>
+           请求页面 <strong className="font-black px-1">{page}</strong> 不在内存中。
+           <br/>
+           <span className="text-orange-500 font-bold flex items-center gap-1 mt-1"><AlertOctagon size={14}/> 判定：缺页 (MISS)</span>
+           <span className="text-xs text-slate-500 block mt-1">存在空闲页框 {emptyIdx}，直接装入。</span>
+         </span>
+       );
+    }
+
+    // REPLACEMENT
+    let victimId = -1;
+    let explanation = "";
+
+    if (algo === 'FIFO') {
+        const sorted = [...frames].sort((a,b) => a.insertedAt - b.insertedAt);
+        victimId = sorted[0].id;
+        explanation = `FIFO: 页框 ${victimId} 最早进入，将被置换。`;
+    } else if (algo === 'LRU') {
+        const sorted = [...frames].sort((a,b) => a.timestamp - b.timestamp);
+        victimId = sorted[0].id;
+        explanation = `LRU: 页框 ${victimId} 最久未被使用，将被置换。`;
+    } else if (algo === 'CLOCK') {
+        // Simulate Clock
+        let ptr = pointer;
+        let scanned = [];
+        let found = false;
+        // Safety break
+        for(let i=0; i<frames.length * 2 + 1; i++) {
+            const f = frames[ptr];
+            if (f.refBit === false) {
+                victimId = ptr;
+                found = true;
+                break;
+            }
+            scanned.push(ptr);
+            ptr = (ptr + 1) % frames.length;
+        }
+        if (found) {
+            if (scanned.length === 0) {
+                 explanation = `Clock: 指针指向页框 ${victimId} 且 R=0。直接置换。`;
+            } else {
+                 explanation = `Clock: 指针扫描过页框 ${scanned.join(', ')} (将其 R 设为 0)，最终在页框 ${victimId} 发现 R=0 并置换。`;
+            }
+        }
+    }
+
+    return (
+        <span>
+           请求页面 <strong className="font-black px-1">{page}</strong> 不在内存且已满。
+           <br/>
+           <span className="text-red-500 font-bold flex items-center gap-1 mt-1"><RefreshCcw size={14}/> 判定：置换 (REPLACE)</span>
+           <span className="text-xs text-slate-500 block mt-1">{explanation}</span>
+        </span>
+    );
+  };
+
   return (
     <div className={`flex flex-col h-full p-6 gap-6 overflow-y-auto ${styles.bg}`}>
       
@@ -160,10 +239,10 @@ export const SwappingView: React.FC = () => {
                 </button>
               ))}
             </div>
-            <div className="text-xs text-slate-500 font-medium hidden md:block">
-               {algo === 'FIFO' && '先进先出：最简单，但可能出现 Belady 异常（物理页增多缺页反而增多）。'}
-               {algo === 'LRU' && '最近最少使用：性能接近最优，但需要硬件支持（时间戳/栈），开销大。'}
-               {algo === 'CLOCK' && '时钟置换：LRU 的近似算法，利用引用位 (Ref Bit) 给予“第二次机会”。'}
+            <div className="text-xs text-slate-500 font-medium hidden md:block border-l pl-4 border-slate-200">
+               {algo === 'FIFO' && '先进先出：最简单，但可能出现 Belady 异常。'}
+               {algo === 'LRU' && '最近最少使用：性能好，但开销大 (需硬件支持)。'}
+               {algo === 'CLOCK' && '时钟置换：LRU 的近似实现，基于引用位 (Ref Bit)。'}
             </div>
          </div>
 
@@ -185,19 +264,34 @@ export const SwappingView: React.FC = () => {
          {/* Left: Memory & Request */}
          <div className={`${styles.card} p-8 flex-1 flex flex-col items-center justify-center relative`}>
             
-            {/* Incoming Queue */}
-            <div className="flex items-center gap-2 mb-12">
-               <div className="text-xs font-bold uppercase text-slate-400 mr-2">请求队列:</div>
-               {refString.slice(currentIndex, currentIndex + 6).map((page, i) => (
-                  <div key={i} className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 font-bold text-lg animate-in fade-in slide-in-from-right-4 ${i === 0 ? (mode === 'cute' ? 'bg-pink-100 border-pink-400 text-pink-600 scale-110 shadow-lg' : 'bg-blue-100 border-blue-500 text-blue-700 scale-110 shadow-lg') : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-                     {page}
-                  </div>
-               ))}
-               <div className="text-slate-300">...</div>
+            {/* Request Queue */}
+            <div className="flex items-center gap-2 mb-8">
+               <div className="text-xs font-bold uppercase text-slate-400 mr-2 flex items-center gap-1"><ArrowRight size={14}/> 接下来:</div>
+               <div className="flex items-center">
+                 {refString.slice(currentIndex, currentIndex + 6).map((page, i) => (
+                    <div key={i} className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 font-bold text-lg transition-all mr-2 ${i === 0 ? (mode === 'cute' ? 'bg-pink-100 border-pink-400 text-pink-600 scale-110 shadow-lg z-10' : 'bg-blue-100 border-blue-500 text-blue-700 scale-110 shadow-lg z-10') : 'bg-slate-50 border-slate-100 text-slate-300 scale-90'}`}>
+                       {page}
+                    </div>
+                 ))}
+                 <div className="text-slate-300 text-xs">...</div>
+               </div>
+            </div>
+
+            {/* Analysis Box */}
+            <div className={`mb-10 p-4 rounded-xl border-l-4 shadow-sm flex items-start gap-3 w-full max-w-lg transition-all ${
+               currentIndex >= refString.length 
+                 ? 'bg-slate-50 border-slate-300 text-slate-500 opacity-50'
+                 : (mode === 'cute' ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'bg-blue-50 border-blue-400 text-slate-700')
+            }`}>
+               <Lightbulb size={20} className="shrink-0 mt-0.5 text-yellow-500" fill="currentColor" />
+               <div className="text-sm leading-relaxed flex-1">
+                  <div className="font-bold text-[10px] uppercase opacity-60 mb-1">下一步行为预判 (Next Step Analysis)</div>
+                  {getNextStepAnalysis()}
+               </div>
             </div>
 
             {/* RAM Frames */}
-            <div className="relative">
+            <div className="relative mt-4">
                <h4 className="absolute -top-8 left-0 text-xs font-bold uppercase text-slate-400 flex items-center gap-2">
                   <Database size={14}/> 物理内存 (3 页框)
                </h4>
@@ -211,14 +305,14 @@ export const SwappingView: React.FC = () => {
                        <div key={idx} className="relative group">
                           {/* Clock Hand Pointer */}
                           {algo === 'CLOCK' && (
-                            <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all duration-300 ${isClockHand ? 'opacity-100 translate-y-2' : 'opacity-0'}`}>
-                               <div className="text-orange-500 font-bold text-xs mb-1 whitespace-nowrap">时钟指针</div>
-                               <div className="w-0.5 h-4 bg-orange-500 mx-auto"></div>
-                               <div className="w-2 h-2 bg-orange-500 rotate-45 mx-auto -mt-1"></div>
+                            <div className={`absolute -top-10 left-1/2 -translate-x-1/2 transition-all duration-300 z-20 flex flex-col items-center ${isClockHand ? 'opacity-100 translate-y-2' : 'opacity-0'}`}>
+                               <div className="text-orange-500 font-bold text-[10px] whitespace-nowrap bg-orange-50 px-1 rounded border border-orange-200 shadow-sm mb-1">Clock Hand</div>
+                               <div className="w-0.5 h-3 bg-orange-500"></div>
+                               <div className="w-2 h-2 bg-orange-500 rotate-45 -mt-1"></div>
                             </div>
                           )}
 
-                          <div className={`w-24 h-32 rounded-2xl border-4 flex flex-col items-center justify-center transition-all duration-300 ${
+                          <div className={`w-24 h-32 rounded-2xl border-4 flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden ${
                             isHighlight 
                               ? (mode === 'cute' ? 'border-pink-400 bg-pink-50 ring-4 ring-pink-100' : 'border-blue-500 bg-blue-50 ring-4 ring-blue-100')
                               : 'border-slate-200 bg-white'
@@ -229,19 +323,24 @@ export const SwappingView: React.FC = () => {
                                  <span className="text-[10px] text-slate-400 mt-2">Page #{frame.pageId}</span>
                                </>
                              ) : (
-                               <span className="text-slate-300 text-xs">空 (Empty)</span>
+                               <span className="text-slate-300 text-xs">Empty</span>
                              )}
 
                              {/* Metadata Badges */}
-                             <div className="absolute bottom-2 flex gap-1">
+                             <div className="absolute bottom-0 w-full flex justify-center pb-2">
                                {algo === 'CLOCK' && (
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold border ${frame.refBit ? 'bg-green-100 text-green-600 border-green-200' : 'bg-red-50 text-red-400 border-red-100'}`}>
+                                 <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border shadow-sm ${frame.refBit ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-50 text-red-500 border-red-100'}`}>
                                    R={frame.refBit ? 1 : 0}
                                  </span>
                                )}
                                {algo === 'LRU' && frame.pageId !== null && (
-                                 <span className="text-[8px] bg-slate-100 text-slate-500 px-1 rounded">
+                                 <span className="text-[8px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-200">
                                    t={frame.timestamp % 10000}
+                                 </span>
+                               )}
+                               {algo === 'FIFO' && frame.pageId !== null && (
+                                 <span className="text-[8px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-200">
+                                   in={frame.insertedAt % 10000}
                                  </span>
                                )}
                              </div>
@@ -263,7 +362,7 @@ export const SwappingView: React.FC = () => {
                </h4>
                <div className="flex-1 overflow-y-auto h-64 space-y-2 pr-1 custom-scrollbar">
                   {[...history].reverse().map((h, i) => (
-                    <div key={i} className={`flex justify-between items-center p-2 rounded-lg text-xs border ${h.result === 'HIT' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                    <div key={i} className={`flex justify-between items-center p-2 rounded-lg text-xs border animate-in slide-in-from-left-2 ${h.result === 'HIT' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
                        <span className="font-bold">访问页面 {h.page}</span>
                        <span className="flex items-center gap-1 font-bold">
                          {h.result === 'HIT' ? <CheckCircle size={12}/> : <AlertOctagon size={12}/>}
