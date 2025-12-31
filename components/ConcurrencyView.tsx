@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { ShieldCheck, ShieldAlert, Cpu, Database, Play, Pause, RotateCcw, Plus, Minus, UserPlus, Utensils, AlertTriangle, Lock, Unlock, ArrowDown, ArrowUp, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Cpu, Database, Play, Pause, RotateCcw, Plus, Minus, UserPlus, Utensils, AlertTriangle, Lock, Unlock, ArrowDown, ArrowUp, ChevronRight, ChevronLeft, MessageSquare, Repeat, Zap, Clock, MousePointer, Server, Layers, Maximize2, X, Trash2 } from 'lucide-react';
 
 // --- Step Definitions ---
 type ScenarioStep = {
@@ -22,28 +22,610 @@ const INITIAL_THREAD_STATE = { pc: -1, reg: null, state: 'IDLE' };
 
 export const ConcurrencyView: React.FC = () => {
   const { styles, mode } = useTheme();
-  const [tab, setTab] = useState<'mutex' | 'semaphore' | 'dining'>('mutex');
+  const [tab, setTab] = useState<'mutex' | 'semaphore' | 'dining' | 'event'>('mutex');
 
   return (
-    <div className={`flex flex-col h-full p-6 gap-6 ${styles.bg}`}>
-       <div className="flex justify-center shrink-0">
+    <div className={`flex flex-col h-full p-6 gap-6 overflow-y-auto ${styles.bg}`}>
+       <div className="flex justify-center shrink-0 overflow-x-auto">
          <div className={`p-1 rounded-xl flex gap-1 border ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-200 border-slate-300'}`}>
-           <button onClick={() => setTab('mutex')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'mutex' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
+           <button onClick={() => setTab('mutex')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${tab === 'mutex' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
              互斥锁与竞态 (Mutex)
            </button>
-           <button onClick={() => setTab('semaphore')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'semaphore' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
+           <button onClick={() => setTab('semaphore')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${tab === 'semaphore' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
              信号量 (Producer-Consumer)
            </button>
-           <button onClick={() => setTab('dining')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'dining' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
+           <button onClick={() => setTab('dining')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${tab === 'dining' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
              经典问题 (Deadlock)
+           </button>
+           <button onClick={() => setTab('event')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${tab === 'event' ? (mode === 'cute' ? 'bg-pink-400 text-white shadow' : 'bg-white text-slate-800 shadow') : 'text-slate-400 hover:text-slate-600'}`}>
+             基于事件 (Event Loop)
            </button>
          </div>
        </div>
 
-       {tab === 'mutex' ? <RaceConditionDemo /> : tab === 'semaphore' ? <ProducerConsumerDemo /> : <PhilosophersDemo />}
+       {tab === 'mutex' ? <RaceConditionDemo /> : 
+        tab === 'semaphore' ? <ProducerConsumerDemo /> : 
+        tab === 'dining' ? <PhilosophersDemo /> : 
+        <EventLoopDemo />}
     </div>
   );
 };
+
+// --- Producer Consumer Demo ---
+const ProducerConsumerDemo = () => {
+  const { styles, mode } = useTheme();
+  // Buffer size 5
+  const BUFFER_SIZE = 5;
+  const [buffer, setBuffer] = useState<(number | null)[]>(Array(BUFFER_SIZE).fill(null));
+  const [mutex, setMutex] = useState(true); // true = unlocked
+  const [empty, setEmpty] = useState(BUFFER_SIZE);
+  const [full, setFull] = useState(0);
+  const [producerState, setProducerState] = useState<'IDLE' | 'WAIT' | 'PRODUCING'>('IDLE');
+  const [consumerState, setConsumerState] = useState<'IDLE' | 'WAIT' | 'CONSUMING'>('IDLE');
+
+  const produce = async () => {
+    if (producerState !== 'IDLE') return;
+    setProducerState('WAIT');
+    
+    // Check semaphores
+    if (empty > 0) {
+        // Wait Mutex
+        if (mutex) {
+            setMutex(false);
+            setProducerState('PRODUCING');
+            await new Promise(r => setTimeout(r, 800)); // Simulate work
+            
+            setBuffer(prev => {
+                const idx = prev.findIndex(x => x === null);
+                const next = [...prev];
+                if(idx !== -1) next[idx] = Math.floor(Math.random() * 100);
+                return next;
+            });
+            setEmpty(e => e - 1);
+            setFull(f => f + 1);
+            
+            setMutex(true);
+            setProducerState('IDLE');
+        } else {
+             // Blocked on mutex
+             setTimeout(() => setProducerState('IDLE'), 500); // Retry later visually
+        }
+    } else {
+        // Blocked on Empty
+        setTimeout(() => setProducerState('IDLE'), 500); 
+    }
+  };
+
+  const consume = async () => {
+    if (consumerState !== 'IDLE') return;
+    setConsumerState('WAIT');
+
+    if (full > 0) {
+        if (mutex) {
+            setMutex(false);
+            setConsumerState('CONSUMING');
+            await new Promise(r => setTimeout(r, 800));
+
+            setBuffer(prev => {
+                // Find first non-null
+                const idx = prev.findIndex(x => x !== null);
+                const next = [...prev];
+                if(idx !== -1) next[idx] = null;
+                // Shift visual queue behavior: move items to the left
+                const newB = next.filter(x => x !== null);
+                while(newB.length < BUFFER_SIZE) newB.push(null);
+                return newB;
+            });
+            setEmpty(e => e + 1);
+            setFull(f => f - 1);
+
+            setMutex(true);
+            setConsumerState('IDLE');
+        } else {
+            setTimeout(() => setConsumerState('IDLE'), 500);
+        }
+    } else {
+        setTimeout(() => setConsumerState('IDLE'), 500);
+    }
+  };
+
+  return (
+      <div className="flex flex-col gap-6 h-full">
+          {/* Dashboard */}
+          <div className={`${styles.card} p-6 flex justify-around items-center`}>
+              <div className="flex flex-col items-center">
+                  <div className="text-xs uppercase font-bold text-slate-400 mb-1">Semaphore: Empty</div>
+                  <div className="text-3xl font-mono font-bold text-blue-500">{empty}</div>
+              </div>
+              <div className="flex flex-col items-center">
+                  <div className="text-xs uppercase font-bold text-slate-400 mb-1">Semaphore: Mutex</div>
+                  <div className={`text-3xl font-mono font-bold ${mutex ? 'text-green-500' : 'text-red-500'}`}>
+                      {mutex ? '1 (Unlock)' : '0 (Lock)'}
+                  </div>
+              </div>
+              <div className="flex flex-col items-center">
+                  <div className="text-xs uppercase font-bold text-slate-400 mb-1">Semaphore: Full</div>
+                  <div className="text-3xl font-mono font-bold text-orange-500">{full}</div>
+              </div>
+          </div>
+
+          <div className="flex-1 flex items-center justify-between gap-8 min-h-[300px]">
+              {/* Producer */}
+              <div className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all ${producerState === 'PRODUCING' ? 'border-green-400 bg-green-50 scale-105 shadow-lg' : 'border-slate-200 bg-white'}`}>
+                  <div className="font-bold text-lg">Producer</div>
+                  <div className={`text-xs px-2 py-1 rounded font-bold ${producerState === 'IDLE' ? 'bg-slate-100' : producerState === 'WAIT' ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600'}`}>
+                      {producerState}
+                  </div>
+                  <button onClick={produce} disabled={producerState !== 'IDLE'} className={styles.button.primary + " px-6 py-2"}>
+                      Produce Item
+                  </button>
+              </div>
+
+              {/* Buffer */}
+              <div className={`${styles.card} p-4 flex-1 flex flex-col items-center`}>
+                  <div className="text-xs font-bold uppercase text-slate-400 mb-4">Bounded Buffer (FIFO)</div>
+                  <div className="flex gap-2">
+                      {buffer.map((item, i) => (
+                          <div key={i} className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center font-bold text-lg transition-all ${item !== null ? 'bg-orange-100 border-orange-400 text-orange-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>
+                              {item !== null ? item : '∅'}
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              {/* Consumer */}
+              <div className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all ${consumerState === 'CONSUMING' ? 'border-blue-400 bg-blue-50 scale-105 shadow-lg' : 'border-slate-200 bg-white'}`}>
+                  <div className="font-bold text-lg">Consumer</div>
+                  <div className={`text-xs px-2 py-1 rounded font-bold ${consumerState === 'IDLE' ? 'bg-slate-100' : consumerState === 'WAIT' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {consumerState}
+                  </div>
+                  <button onClick={consume} disabled={consumerState !== 'IDLE'} className={styles.button.secondary + " px-6 py-2 border-blue-200 text-blue-600"}>
+                      Consume Item
+                  </button>
+              </div>
+          </div>
+      </div>
+  );
+};
+
+// --- Philosophers Demo ---
+const PhilosophersDemo = () => {
+    const { styles, mode } = useTheme();
+    // 0: Thinking, 1: Hungry, 2: Eating
+    const [philosophers, setPhilosophers] = useState<number[]>([0, 0, 0, 0, 0]);
+    const [forks, setForks] = useState<boolean[]>([true, true, true, true, true]); // true = free
+    const [deadlock, setDeadlock] = useState(false);
+
+    const tryEat = (id: number) => {
+        if (deadlock) return;
+
+        setPhilosophers(prev => {
+            const next = [...prev];
+            next[id] = 1; // Hungry
+            return next;
+        });
+
+        // Simple logic: Try get left then right
+        setTimeout(() => {
+            setForks(currentForks => {
+                const left = id;
+                const right = (id + 1) % 5;
+                
+                // If both available, eat
+                if (currentForks[left] && currentForks[right]) {
+                    const nextForks = [...currentForks];
+                    nextForks[left] = false;
+                    nextForks[right] = false;
+
+                    setPhilosophers(p => {
+                        const next = [...p];
+                        next[id] = 2; // Eating
+                        return next;
+                    });
+
+                    // Finish eating after delay
+                    setTimeout(() => {
+                        setForks(f => {
+                            const nf = [...f];
+                            nf[left] = true;
+                            nf[right] = true;
+                            return nf;
+                        });
+                        setPhilosophers(p => {
+                            const next = [...p];
+                            next[id] = 0; // Thinking
+                            return next;
+                        });
+                    }, 2000);
+
+                    return nextForks;
+                } else {
+                    // Failed to get forks
+                    return currentForks;
+                }
+            });
+        }, 500);
+    };
+    
+    // Deadlock Simulation: Everyone pick left fork
+    const triggerDeadlock = () => {
+        setDeadlock(true);
+        setPhilosophers([1,1,1,1,1]); // All hungry
+        // Everyone takes left fork
+        setForks([false, false, false, false, false]);
+        // No one can take right fork
+    };
+
+    const reset = () => {
+        setDeadlock(false);
+        setPhilosophers([0,0,0,0,0]);
+        setForks([true,true,true,true,true]);
+    };
+
+    return (
+        <div className="flex flex-col h-full gap-6 items-center justify-center">
+            <div className={`${styles.card} p-4 w-full flex justify-between items-center`}>
+                <h3 className={`font-bold ${styles.text.primary}`}>哲学家就餐问题 (Dining Philosophers)</h3>
+                <div className="flex gap-2">
+                    <button onClick={triggerDeadlock} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-red-600">
+                        模拟死锁 (Deadlock)
+                    </button>
+                    <button onClick={reset} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-200">
+                        <RotateCcw size={16}/> 重置
+                    </button>
+                </div>
+            </div>
+
+            <div className="relative w-[400px] h-[400px] flex-1">
+                 {/* Table */}
+                 <div className="absolute inset-0 m-auto w-48 h-48 rounded-full bg-amber-100 border-8 border-amber-200 shadow-xl flex items-center justify-center">
+                    {deadlock && <div className="text-red-500 font-bold animate-pulse text-lg">DEADLOCK!</div>}
+                 </div>
+
+                 {/* Philosophers */}
+                 {philosophers.map((state, i) => {
+                     const angle = (i * 72 - 90) * (Math.PI / 180);
+                     const r = 160;
+                     const x = 200 + r * Math.cos(angle);
+                     const y = 200 + r * Math.sin(angle);
+                     
+                     return (
+                         <div key={i} 
+                              className={`absolute w-24 h-24 rounded-full border-4 flex flex-col items-center justify-center transition-all shadow-lg transform -translate-x-1/2 -translate-y-1/2 ${state === 2 ? 'bg-green-100 border-green-400 text-green-700' : state === 1 ? 'bg-red-100 border-red-400 text-red-700' : 'bg-white border-slate-200 text-slate-500'}`}
+                              style={{ left: x, top: y }}
+                         >
+                             <div className="font-bold">P{i}</div>
+                             <div className="text-[10px] uppercase font-bold">{state === 2 ? 'Eating' : state === 1 ? 'Hungry' : 'Thinking'}</div>
+                             {state === 0 && !deadlock && (
+                                 <button onClick={() => tryEat(i)} className="absolute -bottom-6 bg-blue-500 hover:bg-blue-600 text-white text-[10px] px-3 py-1 rounded-full shadow-sm z-10">
+                                     Eat
+                                 </button>
+                             )}
+                         </div>
+                     );
+                 })}
+
+                 {/* Forks */}
+                 {forks.map((available, i) => {
+                     // Fork i is between P(i) and P(i+1)
+                     const angle = ((i * 72) - 90 + 36) * (Math.PI / 180);
+                     const r = 100;
+                     const x = 200 + r * Math.cos(angle);
+                     const y = 200 + r * Math.sin(angle);
+
+                     return (
+                         <div key={i}
+                              className={`absolute w-2 h-12 rounded-full transition-all transform -translate-x-1/2 -translate-y-1/2 ${available ? 'bg-slate-400' : 'bg-transparent'}`}
+                              style={{ left: x, top: y, transform: `translate(-50%, -50%) rotate(${i*72 + 36}deg)` }}
+                         >
+                             {/* Only show fork if available on table */}
+                         </div>
+                     )
+                 })}
+            </div>
+            
+            <div className={`text-center text-sm ${deadlock ? 'text-red-500' : styles.text.secondary}`}>
+                {deadlock ? "死锁发生！每个人都拿着左手的叉子等待右手的叉子，导致循环等待。" : "点击 'Eat' 让哲学家尝试进餐。如果有死锁风险，系统会卡住。"}
+            </div>
+        </div>
+    );
+};
+
+// --- Event Loop Demo ---
+interface EventTask {
+  id: number;
+  type: 'ui' | 'calc' | 'network' | 'callback';
+  name: string;
+  duration: number; // ms
+  color: string;
+  icon: any;
+}
+
+const EventLoopDemo = () => {
+  const { styles, mode } = useTheme();
+  const [queue, setQueue] = useState<EventTask[]>([]);
+  const [currentTask, setCurrentTask] = useState<EventTask | null>(null);
+  const [backgroundTasks, setBackgroundTasks] = useState<EventTask[]>([]);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [showLogDrawer, setShowLogDrawer] = useState(false);
+  
+  // Stats
+  const [processedCount, setProcessedCount] = useState(0);
+
+  const addTask = (type: 'ui' | 'calc' | 'network') => {
+    const id = Date.now();
+    let task: EventTask;
+
+    if (type === 'ui') {
+      task = { id, type, name: '点击事件 (Click)', duration: 800, color: 'bg-blue-500', icon: MousePointer };
+    } else if (type === 'calc') {
+      task = { id, type, name: '复杂计算 (Blocking)', duration: 3000, color: 'bg-red-500', icon: Cpu };
+    } else {
+      task = { id, type, name: '网络请求 (Async I/O)', duration: 2000, color: 'bg-emerald-500', icon: Zap };
+    }
+
+    setQueue(prev => [...prev, task]);
+    addLog(`➕ 添加任务: ${task.name}`);
+  };
+
+  const addLog = (msg: string) => {
+    setLogs(prev => [msg, ...prev]);
+  };
+
+  // Main Loop Logic
+  useEffect(() => {
+    if (currentTask) return; // Busy
+
+    if (queue.length > 0) {
+      const task = queue[0];
+      setQueue(prev => prev.slice(1));
+      setCurrentTask(task);
+      
+      // Process logic
+      if (task.type === 'ui' || task.type === 'callback') {
+        // Fast execution
+        setTimeout(() => {
+          finishTask(task);
+        }, task.duration);
+      } else if (task.type === 'calc') {
+        // Blocking execution
+        setIsBlocked(true);
+        addLog(`⚠️ 主线程被阻塞！界面失去响应...`);
+        setTimeout(() => {
+          setIsBlocked(false);
+          finishTask(task);
+        }, task.duration);
+      } else if (task.type === 'network') {
+        // Async offload
+        addLog(`⚡ 异步卸载: ${task.name} -> 发送到后台`);
+        // Immediately finish main thread part (initiate request)
+        setTimeout(() => {
+           // Move to background
+           setBackgroundTasks(prev => [...prev, task]);
+           setCurrentTask(null); // Free up the loop immediately!
+           
+           // Simulate network delay then callback
+           setTimeout(() => {
+             const callbackTask: EventTask = {
+               id: task.id + 1,
+               type: 'callback',
+               name: `回调: ${task.name} 完成`,
+               duration: 500,
+               color: 'bg-emerald-600',
+               icon: MessageSquare
+             };
+             setBackgroundTasks(prev => prev.filter(t => t.id !== task.id));
+             setQueue(prev => [...prev, callbackTask]);
+             addLog(`📩 网络请求完成，回调函数进入队列`);
+           }, task.duration); // Simulated network latency
+
+        }, 500); // Small overhead to initiate
+      }
+
+    }
+  }, [queue, currentTask]);
+
+  const finishTask = (task: EventTask) => {
+    setCurrentTask(null);
+    setProcessedCount(prev => prev + 1);
+    addLog(`✅ 完成任务: ${task.name}`);
+  };
+
+  return (
+    <div className="flex flex-col min-h-full gap-6">
+       
+       {/* 1. Header / Controls */}
+       <div className={`${styles.card} p-5 flex flex-col md:flex-row gap-6 shrink-0`}>
+          <div className="flex-1">
+             <h3 className={`font-bold text-lg ${styles.text.primary} flex items-center gap-2`}>
+               <RotateCcw size={20} className={isBlocked ? 'text-red-500' : 'text-blue-500 animate-spin-slow'} />
+               事件循环 (Event Loop)
+             </h3>
+             <p className={`text-sm mt-1 ${styles.text.secondary}`}>
+               单线程架构。所有任务在主线程排队执行。耗时任务应异步处理，否则会阻塞循环。
+             </p>
+          </div>
+          
+          <div className="flex gap-2">
+             <button onClick={() => addTask('ui')} className={`${styles.button.secondary} px-4 py-2 border-blue-200 text-blue-600 flex items-center gap-2`}>
+                <MousePointer size={16}/> UI 点击 (快)
+             </button>
+             <button onClick={() => addTask('network')} className={`${styles.button.secondary} px-4 py-2 border-emerald-200 text-emerald-600 flex items-center gap-2`}>
+                <Zap size={16}/> 网络请求 (异步)
+             </button>
+             <button onClick={() => addTask('calc')} className={`${styles.button.secondary} px-4 py-2 border-red-200 text-red-500 flex items-center gap-2`}>
+                <Cpu size={16}/> 复杂计算 (阻塞)
+             </button>
+          </div>
+       </div>
+
+       {/* 2. Main Visualization Area */}
+       <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-[400px]">
+          
+          {/* LEFT: The Event Loop & Stack */}
+          <div className={`${styles.card} flex-1 p-8 flex flex-col items-center justify-center relative overflow-hidden bg-slate-50/50`}>
+             
+             {/* The Loop Spinner */}
+             <div className="relative w-64 h-64 flex items-center justify-center">
+                {/* Track */}
+                <div className="absolute inset-0 rounded-full border-8 border-slate-100"></div>
+                
+                {/* Spinner */}
+                <div className={`absolute inset-0 rounded-full border-t-8 border-r-8 transition-all duration-[2000ms] ease-linear ${
+                   isBlocked ? 'border-red-500 rotate-0' : 'border-blue-400 animate-spin'
+                }`} style={{ animationDuration: '3s' }}></div>
+
+                {/* Center Core (CPU/Thread) */}
+                <div className={`z-10 w-32 h-32 rounded-full shadow-xl flex flex-col items-center justify-center border-4 transition-all ${
+                   isBlocked 
+                    ? 'bg-red-50 border-red-400 animate-pulse scale-105' 
+                    : (currentTask ? 'bg-white border-blue-400' : 'bg-slate-50 border-slate-200')
+                }`}>
+                   {currentTask ? (
+                     <div className="text-center animate-in zoom-in duration-300">
+                        <currentTask.icon size={24} className={`mx-auto mb-1 ${isBlocked ? 'text-red-500' : 'text-blue-500'}`}/>
+                        <div className={`text-[10px] font-bold uppercase ${isBlocked ? 'text-red-500' : 'text-slate-400'}`}>
+                          {isBlocked ? 'BLOCKING' : 'Processing'}
+                        </div>
+                        <div className={`text-xs font-bold px-2 truncate max-w-[100px] ${styles.text.primary}`}>{currentTask.name}</div>
+                     </div>
+                   ) : (
+                     <div className="text-center text-slate-300">
+                        <Repeat size={32} className="mx-auto mb-1 opacity-50"/>
+                        <div className="text-xs font-bold uppercase">Idle</div>
+                     </div>
+                   )}
+                </div>
+             </div>
+
+             {/* Blocking Warning Overlay */}
+             {isBlocked && (
+               <div className="absolute top-4 bg-red-500 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs flex items-center gap-2 animate-bounce">
+                  <AlertTriangle size={16}/> 主线程阻塞中！无法响应新事件！
+               </div>
+             )}
+
+             {/* Background Workers (Async) */}
+             {backgroundTasks.length > 0 && (
+                <div className="absolute bottom-4 right-4 animate-in slide-in-from-right">
+                   <div className="bg-slate-800 text-white p-3 rounded-xl shadow-lg border border-slate-700">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 mb-2 flex items-center gap-2">
+                         <Server size={12}/> Web APIs / Worker Threads
+                      </div>
+                      <div className="space-y-2">
+                        {backgroundTasks.map(t => (
+                          <div key={t.id} className="flex items-center gap-2 text-xs">
+                             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                             <span>Processing {t.name}...</span>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                   {/* Connector Line Logic (Simplified visually) */}
+                   <div className="absolute -top-4 left-1/2 w-0.5 h-4 bg-slate-300 -z-10"></div>
+                </div>
+             )}
+
+          </div>
+
+          {/* RIGHT: Event Queue & Logs */}
+          <div className="w-full lg:w-80 flex flex-col gap-4">
+             
+             {/* Event Queue Visual */}
+             <div className={`${styles.card} p-4 flex-1 flex flex-col bg-slate-100/50 min-h-0`}>
+                <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-500 shrink-0">
+                   <Layers size={16}/> 事件队列 (Task Queue)
+                </h4>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+                   {queue.length === 0 && (
+                     <div className="h-full flex flex-col items-center justify-center text-slate-300 text-xs border-2 border-dashed border-slate-200 rounded-lg">
+                        队列为空
+                     </div>
+                   )}
+                   {queue.map((t, i) => (
+                      <div key={t.id} className={`p-3 rounded-lg bg-white shadow-sm border border-slate-200 flex items-center gap-3 animate-in slide-in-from-right-2 duration-300 delay-${i*100}`}>
+                         <div className={`p-2 rounded-lg ${t.color} text-white`}>
+                            <t.icon size={14}/>
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <div className="font-bold text-xs truncate text-slate-700">{t.name}</div>
+                            <div className="text-[10px] text-slate-400">{t.type === 'ui' ? 'User Interaction' : t.type === 'network' ? 'I/O Task' : 'CPU Task'}</div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+
+             {/* Log Panel (Clickable to open Drawer) */}
+             <div 
+               onClick={() => setShowLogDrawer(true)}
+               className={`${styles.card} p-4 bg-slate-900 text-slate-300 h-40 overflow-hidden flex flex-col shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all group relative`}
+               title="点击查看完整日志"
+             >
+                <div className="flex justify-between items-center border-b border-slate-800 pb-1 mb-2">
+                   <div className="text-[10px] font-bold uppercase text-slate-500">System Logs</div>
+                   <div className="flex items-center gap-1 text-[9px] text-slate-500 group-hover:text-blue-400 transition-colors">
+                      <Maximize2 size={10}/> 展开
+                   </div>
+                </div>
+                <div className="font-mono text-[10px] space-y-1.5 overflow-hidden flex-1 relative">
+                   {/* Gradient fade at bottom to indicate more content */}
+                   <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none z-10"></div>
+                   
+                   {logs.slice(0, 8).map((l, i) => (
+                      <div key={i} className="truncate opacity-90">{'>'} {l}</div>
+                   ))}
+                   {logs.length === 0 && <div className="text-slate-600 italic text-center mt-4">暂无日志...</div>}
+                </div>
+             </div>
+
+          </div>
+
+       </div>
+
+       {/* Log Drawer (Overlay) */}
+       {showLogDrawer && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm animate-in fade-in" onClick={() => setShowLogDrawer(false)}>
+             <div 
+               className="w-full max-w-md bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-slate-700"
+               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+             >
+                <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-950">
+                   <h3 className="font-bold text-white flex items-center gap-2"><Server size={18}/> 完整系统日志 ({logs.length})</h3>
+                   <div className="flex items-center gap-2">
+                      <button onClick={() => setLogs([])} className="p-2 hover:bg-red-900/30 text-red-400 rounded-lg transition-colors" title="清空日志">
+                         <Trash2 size={18}/>
+                      </button>
+                      <button onClick={() => setShowLogDrawer(false)} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors">
+                         <X size={20}/>
+                      </button>
+                   </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 font-mono text-xs text-slate-300 space-y-1 bg-slate-900 custom-scrollbar">
+                   {logs.length === 0 && (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2">
+                         <Server size={32} className="opacity-20"/>
+                         <p>日志已清空</p>
+                      </div>
+                   )}
+                   {logs.map((l, i) => (
+                      <div key={i} className="flex gap-2 hover:bg-slate-800/50 p-1 rounded transition-colors break-all">
+                         <span className="text-slate-600 shrink-0 w-8 text-right select-none">#{logs.length - i}</span>
+                         <span className={l.includes('⚠️') ? 'text-red-300' : l.includes('✅') ? 'text-green-300' : l.includes('⚡') ? 'text-blue-300' : 'text-slate-300'}>
+                           {l}
+                         </span>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          </div>
+       )}
+    </div>
+  );
+};
+
 
 // --- Race Condition Demo (Refactored) ---
 const RaceConditionDemo = () => {
@@ -533,175 +1115,3 @@ const ThreadPanel = ({ id, state, instructions, isActive, action, color, mode }:
     </div>
   );
 }
-
-// --- Producer Consumer ---
-const ProducerConsumerDemo = () => {
-  const { styles, mode } = useTheme();
-  const [buffer, setBuffer] = useState<number[]>([]);
-  const [semEmpty, setSemEmpty] = useState(5);
-  const [semFull, setSemFull] = useState(0);
-  const [semMutex, setSemMutex] = useState(1);
-  const BUFFER_SIZE = 5;
-
-  const produce = async () => {
-    if (semEmpty === 0) return;
-    
-    // Wait(empty)
-    setSemEmpty(s => s - 1);
-    // Wait(mutex)
-    setSemMutex(0);
-    await new Promise(r => setTimeout(r, 400));
-    
-    setBuffer(prev => [...prev, Math.floor(Math.random() * 100)]);
-    
-    // Signal(mutex)
-    setSemMutex(1);
-    // Signal(full)
-    setSemFull(s => s + 1);
-  };
-
-  const consume = async () => {
-    if (semFull === 0) return;
-
-    // Wait(full)
-    setSemFull(s => s - 1);
-    // Wait(mutex)
-    setSemMutex(0);
-    await new Promise(r => setTimeout(r, 400));
-    
-    setBuffer(prev => prev.slice(1));
-    
-    // Signal(mutex)
-    setSemMutex(1);
-    // Signal(empty)
-    setSemEmpty(s => s + 1);
-  };
-
-  return (
-    <div className="flex flex-col gap-6 h-full">
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className={`${styles.card} p-4 text-center`}>
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Semaphore: EMPTY</div>
-            <div className={`text-4xl font-black ${semEmpty === 0 ? 'text-red-500' : 'text-blue-500'}`}>{semEmpty}</div>
-            <div className="text-[10px] mt-1 opacity-50">可写入槽位</div>
-          </div>
-          <div className={`${styles.card} p-4 text-center`}>
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Semaphore: FULL</div>
-            <div className={`text-4xl font-black ${semFull === 0 ? 'text-red-500' : 'text-orange-500'}`}>{semFull}</div>
-            <div className="text-[10px] mt-1 opacity-50">待消费数据</div>
-          </div>
-          <div className={`${styles.card} p-4 text-center`}>
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Semaphore: MUTEX</div>
-            <div className={`text-4xl font-black ${semMutex === 0 ? 'text-red-500' : 'text-emerald-500'}`}>{semMutex}</div>
-            <div className="text-[10px] mt-1 opacity-50">二进制信号量</div>
-          </div>
-       </div>
-
-       <div className={`${styles.card} p-8 flex-1 flex flex-col items-center justify-center`}>
-          <div className="flex gap-4 mb-12">
-             {Array.from({ length: BUFFER_SIZE }).map((_, i) => (
-               <div key={i} className={`w-20 h-20 rounded-2xl border-4 flex items-center justify-center transition-all duration-500 ${buffer[i] !== undefined ? 'border-orange-400 bg-orange-50 scale-105' : 'border-slate-100 bg-slate-50 opacity-30'}`}>
-                 {buffer[i] !== undefined && <span className="font-bold text-orange-600">{buffer[i]}</span>}
-               </div>
-             ))}
-          </div>
-          
-          <div className="flex gap-8">
-             <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                   <Plus size={32}/>
-                </div>
-                <button onClick={produce} disabled={semEmpty === 0 || semMutex === 0} className={styles.button.primary + " px-8 py-2 disabled:opacity-30"}>
-                  生产 (Producer)
-                </button>
-             </div>
-
-             <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center shadow-lg">
-                   <Minus size={32}/>
-                </div>
-                <button onClick={consume} disabled={semFull === 0 || semMutex === 0} className={styles.button.secondary + " px-8 py-2 disabled:opacity-30"}>
-                  消费 (Consumer)
-                </button>
-             </div>
-          </div>
-       </div>
-    </div>
-  );
-};
-
-// --- Dining Philosophers ---
-const PhilosophersDemo = () => {
-  const { styles, mode } = useTheme();
-  const [states, setStates] = useState<('thinking' | 'hungry' | 'eating')[]>(new Array(5).fill('thinking'));
-  const [forks, setForks] = useState<boolean[]>(new Array(5).fill(true)); // true = available
-
-  const togglePhilosopher = (i: number) => {
-    const leftFork = i;
-    const rightFork = (i + 1) % 5;
-
-    if (states[i] === 'thinking') {
-      setStates(prev => { const n = [...prev]; n[i] = 'hungry'; return n; });
-    } else if (states[i] === 'hungry') {
-      // Try pick forks
-      if (forks[leftFork] && forks[rightFork]) {
-        setForks(prev => { const n = [...prev]; n[leftFork] = false; n[rightFork] = false; return n; });
-        setStates(prev => { const n = [...prev]; n[i] = 'eating'; return n; });
-      }
-    } else {
-      // Release forks
-      setForks(prev => { const n = [...prev]; n[leftFork] = true; n[rightFork] = true; return n; });
-      setStates(prev => { const n = [...prev]; n[i] = 'thinking'; return n; });
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full gap-6">
-       <div className={`${styles.card} p-8 flex-1 flex items-center justify-center relative`}>
-          <div className="w-64 h-64 rounded-full border-8 border-amber-100 bg-amber-50/30 relative flex items-center justify-center">
-             <span className="text-slate-300 font-bold uppercase tracking-widest">Shared Table</span>
-             
-             {/* Philosophers */}
-             {states.map((s, i) => {
-                const angle = (i * 72 - 90) * (Math.PI / 180);
-                const x = Math.cos(angle) * 140;
-                const y = Math.sin(angle) * 140;
-                return (
-                  <button 
-                    key={i}
-                    onClick={() => togglePhilosopher(i)}
-                    className={`absolute w-16 h-16 rounded-full border-4 shadow-xl transition-all duration-500 flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 hover:scale-110
-                      ${s === 'thinking' ? 'bg-slate-100 border-slate-300 text-slate-400' : s === 'hungry' ? 'bg-amber-100 border-amber-400 text-amber-600 animate-pulse' : 'bg-emerald-100 border-emerald-400 text-emerald-600 scale-125'}
-                    `}
-                    style={{ left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)` }}
-                  >
-                    <Utensils size={20}/>
-                    <span className="text-[8px] font-bold">P{i}</span>
-                  </button>
-                )
-             })}
-
-             {/* Forks */}
-             {forks.map((f, i) => {
-                const angle = (i * 72 - 54) * (Math.PI / 180);
-                const x = Math.cos(angle) * 80;
-                const y = Math.sin(angle) * 80;
-                return (
-                  <div 
-                    key={i}
-                    className={`absolute w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 ${f ? 'text-slate-400' : 'text-red-500 opacity-20 rotate-45 scale-75'}`}
-                    style={{ left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)` }}
-                  >
-                    /
-                  </div>
-                )
-             })}
-          </div>
-
-          <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs bg-red-50 text-red-500 p-2 rounded-lg border border-red-100">
-             <AlertTriangle size={14}/> 尝试让所有人同时变饿，可能会发生死锁！
-          </div>
-       </div>
-    </div>
-  );
-};
