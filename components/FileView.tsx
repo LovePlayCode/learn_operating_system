@@ -1,11 +1,305 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { 
   HardDrive, FileText, Database, Info, Share2, Link as LinkIcon, 
   Layers, FileCode, Activity, AlertTriangle, RefreshCcw, ArrowRight,
-  CheckCircle, RotateCcw, Shield, Box, LayoutGrid
+  CheckCircle, RotateCcw, Shield, Box, LayoutGrid, Cpu, Zap, Radio, FastForward
 } from 'lucide-react';
+
+// --- Sub-component: Device I/O Interaction (New) ---
+const DeviceIOView = () => {
+  const { styles, mode } = useTheme();
+  const [method, setMethod] = useState<'polling' | 'interrupt' | 'dma'>('polling');
+  const [progress, setProgress] = useState(0);
+  const [cpuTask, setCpuTask] = useState<string>("空闲 (Idle)");
+  const [cpuStatus, setCpuStatus] = useState<'idle' | 'busy' | 'interrupt' | 'user'>('idle');
+  const [isRunning, setIsRunning] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const intervalRef = useRef<any>(null);
+
+  const reset = () => {
+    setIsRunning(false);
+    setProgress(0);
+    setCpuStatus('idle');
+    setCpuTask("空闲 (Idle)");
+    setLogs([]);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  const addLog = (msg: string) => setLogs(prev => [msg, ...prev].slice(0, 4));
+
+  const startSimulation = () => {
+    reset();
+    setIsRunning(true);
+    let p = 0;
+    
+    addLog(`开始 ${method === 'polling' ? '轮询' : method === 'interrupt' ? '中断驱动' : 'DMA'} 读取任务...`);
+
+    if (method === 'polling') {
+      // 轮询模式：CPU 一直在检查
+      setCpuStatus('busy');
+      setCpuTask("while(!ready) check();"); // Busy wait
+      
+      intervalRef.current = setInterval(() => {
+        p += 5;
+        // 模拟 CPU 必须参与数据搬运
+        if (p % 20 === 0) {
+           addLog("CPU: 设备就绪，读取一个字...");
+        } else {
+           // Visualizing busy wait check
+        }
+        
+        if (p >= 100) {
+          p = 100;
+          setIsRunning(false);
+          setCpuStatus('idle');
+          setCpuTask("任务完成");
+          addLog("传输完成！");
+          clearInterval(intervalRef.current);
+        }
+        setProgress(p);
+      }, 200);
+
+    } else if (method === 'interrupt') {
+      // 中断模式：CPU 发指令 -> 干别的 -> 中断 -> 搬运 -> 干别的
+      setCpuStatus('busy'); // Kernel mode init
+      setCpuTask("启动设备 I/O...");
+      addLog("CPU: 发送读取指令");
+
+      setTimeout(() => {
+        // 切换到用户态
+        setCpuStatus('user');
+        setCpuTask("执行用户进程 A (计算中...)");
+        addLog("CPU: 切换到其他进程");
+        
+        intervalRef.current = setInterval(() => {
+          p += 10; // 设备准备数据的速度
+          
+          // 模拟设备每准备好一部分数据就发中断
+          if (p % 25 === 0 && p < 100) {
+             setCpuStatus('interrupt'); // Flash interrupt
+             const prevTask = "执行用户进程 A (计算中...)";
+             setCpuTask("ISR: 搬运数据到内存...");
+             addLog("⚠️ 中断! CPU 暂停进程，搬运数据");
+             
+             // 短暂延迟模拟 ISR 开销
+             setTimeout(() => {
+                setCpuStatus('user');
+                setCpuTask(prevTask);
+             }, 400);
+          }
+
+          if (p >= 100) {
+            p = 100;
+            setIsRunning(false);
+            setCpuStatus('idle');
+            setCpuTask("任务完成");
+            addLog("✅ 最终中断：传输结束");
+            clearInterval(intervalRef.current);
+          }
+          setProgress(p);
+        }, 300);
+      }, 500);
+
+    } else if (method === 'dma') {
+      // DMA 模式：CPU 发指令 -> 干别的 -> (DMA搬运) -> 结束中断
+      setCpuStatus('busy');
+      setCpuTask("配置 DMA 控制器...");
+      addLog("CPU: 设置 DMA 源/目的地址/长度");
+
+      setTimeout(() => {
+        setCpuStatus('user');
+        setCpuTask("执行用户进程 A (计算中...)");
+        addLog("CPU: 彻底释放，DMA 接管总线");
+
+        intervalRef.current = setInterval(() => {
+          p += 5; // DMA 搬运速度
+          // CPU 状态保持 User，完全不被打扰
+          
+          if (p >= 100) {
+            p = 100;
+            setIsRunning(false);
+            setCpuStatus('interrupt');
+            setCpuTask("ISR: 处理 DMA 结束中断");
+            addLog("⚠️ 中断! DMA 报告任务完成");
+            setTimeout(() => {
+               setCpuStatus('idle');
+               setCpuTask("任务完成");
+            }, 800);
+            clearInterval(intervalRef.current);
+          }
+          setProgress(p);
+        }, 100);
+      }, 800);
+    }
+  };
+
+  useEffect(() => {
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-6 h-full">
+       <div className={`${styles.card} p-4 flex flex-col md:flex-row gap-6 shrink-0 items-center justify-between`}>
+          <div>
+             <h3 className={`font-bold text-lg ${styles.text.primary}`}>操作系统与设备交互 (I/O Control)</h3>
+             <p className={`text-xs ${styles.text.secondary}`}>演示 CPU 如何控制慢速外设进行数据传输</p>
+          </div>
+          <div className={`flex p-1 rounded-xl border ${mode === 'cute' ? 'bg-white border-pink-100' : 'bg-slate-200 border-slate-300'}`}>
+             <button onClick={() => { setMethod('polling'); reset(); }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${method === 'polling' ? (mode === 'cute' ? 'bg-pink-400 text-white' : 'bg-slate-800 text-white') : 'text-slate-500'}`}>
+               1. 轮询 (Polling)
+             </button>
+             <button onClick={() => { setMethod('interrupt'); reset(); }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${method === 'interrupt' ? (mode === 'cute' ? 'bg-pink-400 text-white' : 'bg-slate-800 text-white') : 'text-slate-500'}`}>
+               2. 中断 (Interrupt)
+             </button>
+             <button onClick={() => { setMethod('dma'); reset(); }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${method === 'dma' ? (mode === 'cute' ? 'bg-pink-400 text-white' : 'bg-slate-800 text-white') : 'text-slate-500'}`}>
+               3. DMA (Direct Memory Access)
+             </button>
+          </div>
+       </div>
+
+       <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-[400px]">
+          
+          {/* LEFT: Simulation Stage */}
+          <div className={`${styles.card} flex-1 p-8 relative flex flex-col justify-between overflow-hidden bg-slate-50/50`}>
+             
+             {/* CPU Block */}
+             <div className="flex justify-center mb-12 relative z-10">
+                <div className={`w-48 p-4 rounded-2xl border-4 transition-all duration-300 flex flex-col items-center gap-2 shadow-lg ${
+                   cpuStatus === 'busy' ? 'bg-orange-100 border-orange-400' :
+                   cpuStatus === 'user' ? 'bg-green-100 border-green-400' :
+                   cpuStatus === 'interrupt' ? 'bg-red-100 border-red-500 animate-bounce' :
+                   'bg-slate-100 border-slate-300'
+                }`}>
+                   <Cpu size={32} className={cpuStatus === 'interrupt' ? 'text-red-500' : 'text-slate-600'}/>
+                   <div className="text-center">
+                      <div className="text-xs font-bold uppercase text-slate-500">CPU</div>
+                      <div className="text-xs font-bold truncate max-w-[150px]">{cpuTask}</div>
+                   </div>
+                   {cpuStatus === 'interrupt' && <div className="absolute -top-3 -right-3 bg-red-500 text-white text-[10px] px-2 py-1 rounded-full animate-pulse shadow-sm flex items-center gap-1"><Zap size={10}/> INTERRUPT</div>}
+                </div>
+             </div>
+
+             {/* Memory & Device Blocks */}
+             <div className="flex justify-between items-end relative z-10">
+                {/* Device */}
+                <div className={`w-40 h-32 rounded-2xl border-4 flex flex-col items-center justify-center relative transition-all ${isRunning ? 'border-blue-400 bg-blue-50 shadow-blue-200 shadow-xl' : 'border-slate-300 bg-slate-100'}`}>
+                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-2 text-[10px] font-bold uppercase text-slate-400 border rounded shadow-sm">Disk Controller</div>
+                   <HardDrive size={32} className={isRunning ? 'text-blue-500 animate-pulse' : 'text-slate-400'}/>
+                   <div className="mt-2 w-24 h-2 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
+                      <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                   </div>
+                   <div className="text-[10px] font-mono mt-1">{progress}% Ready</div>
+                </div>
+
+                {/* DMA Controller (Only visible in DMA mode) */}
+                {method === 'dma' && (
+                   <div className="absolute left-1/2 bottom-8 -translate-x-1/2 flex flex-col items-center animate-in zoom-in">
+                      <div className={`w-24 h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 ${isRunning ? 'bg-purple-100 border-purple-400 text-purple-700' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                         <FastForward size={24}/>
+                         <div className="text-[9px] font-bold">DMA 芯片</div>
+                      </div>
+                      {isRunning && progress < 100 && (
+                         <div className="mt-2 flex gap-1">
+                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping"></div>
+                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping delay-75"></div>
+                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping delay-150"></div>
+                         </div>
+                      )}
+                   </div>
+                )}
+
+                {/* RAM */}
+                <div className="w-40 h-48 rounded-2xl border-4 border-emerald-200 bg-emerald-50 flex flex-col relative shadow-sm">
+                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-2 text-[10px] font-bold uppercase text-slate-400 border rounded shadow-sm">Main Memory</div>
+                   <div className="flex-1 p-2 flex flex-col-reverse gap-0.5 overflow-hidden">
+                      {Array.from({ length: Math.floor(progress / 10) }).map((_, i) => (
+                         <div key={i} className="h-3 w-full bg-emerald-400 rounded-sm animate-in slide-in-from-bottom-2 fade-in"></div>
+                      ))}
+                   </div>
+                   <div className="p-2 text-center text-xs font-bold text-emerald-700 border-t border-emerald-200 bg-emerald-100 rounded-b-xl">
+                      Buffer
+                   </div>
+                </div>
+             </div>
+
+             {/* Bus Lines (SVG Overlay) */}
+             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{zIndex: 0}}>
+                {/* CPU to Disk/DMA */}
+                <path d="M 50% 120 L 50% 50% L 20% 50% L 20% 70%" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+                <path d="M 50% 50% L 80% 50% L 80% 65%" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+                
+                {/* Data Flow Animation */}
+                {isRunning && (
+                   <>
+                     {method === 'polling' && (
+                        // Disk -> CPU -> RAM
+                        <>
+                          <circle r="4" fill="#3b82f6">
+                             <animateMotion dur="1s" repeatCount="indefinite" path="M 20% 70% L 20% 50% L 50% 50% L 50% 120" />
+                          </circle>
+                          <circle r="4" fill="#10b981">
+                             <animateMotion dur="1s" repeatCount="indefinite" begin="0.5s" path="M 50% 120 L 50% 50% L 80% 50% L 80% 65%" />
+                          </circle>
+                        </>
+                     )}
+                     {method === 'interrupt' && cpuStatus === 'interrupt' && (
+                        // Only moves during interrupt handling
+                        <>
+                          <circle r="4" fill="#ef4444">
+                             <animateMotion dur="0.3s" repeatCount="indefinite" path="M 20% 70% L 20% 50% L 50% 50% L 50% 120" />
+                          </circle>
+                          <circle r="4" fill="#ef4444">
+                             <animateMotion dur="0.3s" repeatCount="indefinite" begin="0.15s" path="M 50% 120 L 50% 50% L 80% 50% L 80% 65%" />
+                          </circle>
+                        </>
+                     )}
+                     {method === 'dma' && (
+                        // Disk -> DMA -> RAM (Direct)
+                        <circle r="4" fill="#a855f7">
+                           <animateMotion dur="0.5s" repeatCount="indefinite" path="M 25% 80% Q 50% 90% 75% 80%" />
+                        </circle>
+                     )}
+                   </>
+                )}
+             </svg>
+
+          </div>
+
+          {/* RIGHT: Controls & Explain */}
+          <div className="w-full lg:w-72 flex flex-col gap-6">
+             <div className={`${styles.card} p-5 flex flex-col`}>
+                <div className="flex justify-center mb-4">
+                   <button 
+                     onClick={startSimulation} 
+                     disabled={isRunning}
+                     className={`${styles.button.primary} w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm shadow-lg`}
+                   >
+                     {isRunning ? <RefreshCcw size={16} className="animate-spin"/> : <ArrowRight size={16}/>}
+                     {isRunning ? '传输中...' : '开始传输'}
+                   </button>
+                </div>
+                
+                <div className="bg-slate-900 rounded-xl p-3 h-48 overflow-y-auto font-mono text-[10px] text-green-400 space-y-1">
+                   {logs.map((l, i) => <div key={i}>{'>'} {l}</div>)}
+                   {logs.length === 0 && <div className="text-slate-600 italic text-center mt-10">系统日志...</div>}
+                </div>
+             </div>
+
+             <div className={`p-4 rounded-xl border text-xs leading-relaxed ${mode === 'cute' ? 'bg-white border-pink-100 text-slate-600' : 'bg-white border-slate-200 text-slate-600'}`}>
+                <h4 className="font-bold mb-2 flex items-center gap-2 text-indigo-600"><Info size={14}/> 核心差异</h4>
+                {method === 'polling' && <p><strong>轮询：</strong>CPU 像个保姆一样不断询问“好了没？”，在数据准备期间，CPU 无法做其他事情，资源利用率极低。</p>}
+                {method === 'interrupt' && <p><strong>中断：</strong>CPU 发出指令后就去做别的（如运行用户进程）。设备准备好一部分数据后发“中断”，CPU 暂停当前工作来搬运数据。比轮询好，但大量数据时中断频繁，CPU 仍需参与搬运。</p>}
+                {method === 'dma' && <p><strong>DMA：</strong>CPU 只需告诉 DMA 控制器“搬什么、搬多少、搬哪去”，然后彻底甩手。DMA 芯片负责在设备和内存间传输。CPU 仅在开始和结束时参与，效率最高！</p>}
+             </div>
+          </div>
+
+       </div>
+    </div>
+  );
+};
 
 // --- Sub-component: Hard Link vs Soft Link ---
 const LinksVisual = () => {
@@ -386,7 +680,7 @@ const JournalingDemo = () => {
 // --- Main File View Export ---
 export const FileView: React.FC = () => {
   const { styles, mode } = useTheme();
-  const [tab, setTab] = useState<'fd' | 'links' | 'raid' | 'journal'>('fd');
+  const [tab, setTab] = useState<'fd' | 'links' | 'raid' | 'journal' | 'device'>('fd');
 
   return (
     <div className={`flex flex-col h-full p-6 gap-6 ${styles.bg}`}>
@@ -396,6 +690,7 @@ export const FileView: React.FC = () => {
            <TabButton active={tab === 'links'} onClick={() => setTab('links')} label="软硬链接" mode={mode} icon={<LinkIcon size={14}/>}/>
            <TabButton active={tab === 'raid'} onClick={() => setTab('raid')} label="磁盘阵列 RAID" mode={mode} icon={<LayoutGrid size={14}/>}/>
            <TabButton active={tab === 'journal'} onClick={() => setTab('journal')} label="日志恢复" mode={mode} icon={<RefreshCcw size={14}/>}/>
+           <TabButton active={tab === 'device'} onClick={() => setTab('device')} label="设备交互 I/O" mode={mode} icon={<Cpu size={14}/>}/>
          </div>
        </div>
 
@@ -404,6 +699,7 @@ export const FileView: React.FC = () => {
           {tab === 'links' && <LinksVisual />}
           {tab === 'raid' && <RAIDVisualizer />}
           {tab === 'journal' && <JournalingDemo />}
+          {tab === 'device' && <DeviceIOView />}
        </div>
     </div>
   );
