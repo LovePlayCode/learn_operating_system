@@ -1,11 +1,12 @@
 
 import React from 'react';
 import { HashRouter as Router, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity, GitMerge, HardDrive, Box } from 'lucide-react';
+import { LayoutDashboard, Layers, FileDigit, Cpu, BookOpen, ToggleLeft, ToggleRight, Palette, Sparkles, Fingerprint, LayoutList, Activity, GitMerge, HardDrive, Box, Network } from 'lucide-react';
 import { MemoryVirtualizationView } from './components/MemoryVirtualizationView';
 import { ProcessView } from './components/ProcessView';
 import { ConcurrencyView } from './components/ConcurrencyView';
 import { FileView } from './components/FileView';
+import { DistributedView } from './components/DistributedView';
 import { AITutor } from './components/AITutor';
 import { MemoryMode } from './types';
 import { ThemeProvider, useTheme } from './hooks/useTheme';
@@ -127,6 +128,11 @@ const ContentWrapper = () => {
     title = "文件系统管理";
     subtitle = "Files & Disk Allocation";
     contextDesc = "用户正在查看文件系统模拟。包含 Inode 结构和磁盘块分配策略（连续、链接、索引）。";
+  } else if (location.pathname === '/distributed') {
+    currentMode = MemoryMode.DISTRIBUTED;
+    title = "分布式系统";
+    subtitle = "Distributed Architecture";
+    contextDesc = "用户正在查看分布式系统模拟。包含 CAP 定理一致性模型、一致性哈希负载均衡以及两阶段提交 (2PC)。";
   }
 
   const isMemoryActive = location.pathname.startsWith('/memory');
@@ -164,6 +170,7 @@ const ContentWrapper = () => {
           <NavItem to="/process" icon={Activity} label="进程调度 (Process)" />
           <NavItem to="/concurrency" icon={GitMerge} label="并发与同步 (Sync)" />
           <NavItem to="/file-system" icon={HardDrive} label="文件系统 (Files)" />
+          <NavItem to="/distributed" icon={Network} label="分布式系统 (Dist)" />
           
           <div className={`mt-8 mx-4 p-4 rounded-xl border ${
             mode === 'modern' 
@@ -175,7 +182,7 @@ const ContentWrapper = () => {
               <div>
                 <h4 className={`text-sm font-semibold mb-1 ${mode === 'modern' ? 'text-slate-200' : 'text-slate-700'}`}>学习提示</h4>
                 <p className={`text-xs leading-relaxed ${mode === 'modern' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  内存虚拟化允许每个进程拥有独立的地址空间。尝试切换不同模式比较页表和段表的区别。
+                  分布式系统通过网络连接多个节点，带来了数据一致性、分区容错等新挑战。
                 </p>
               </div>
             </div>
@@ -194,6 +201,7 @@ const ContentWrapper = () => {
              <Route path="/process" element={<ProcessView />} />
              <Route path="/concurrency" element={<ConcurrencyView />} />
              <Route path="/file-system" element={<FileView />} />
+             <Route path="/distributed" element={<DistributedView />} />
            </Routes>
         </div>
 

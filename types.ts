@@ -11,6 +11,7 @@ export enum MemoryMode {
   PROCESS = 'process_management',
   CONCURRENCY = 'concurrency_sync',
   FILE_SYSTEM = 'file_system',
+  DISTRIBUTED = 'distributed_systems', // New Module
 }
 
 export interface Segment {
